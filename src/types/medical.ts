@@ -11,7 +11,6 @@ export interface Exercise {
   subjectId: string;
   title: string;
   description: string;
-  link: string;
   difficulty: 'easy' | 'medium' | 'hard';
   questions: Question[];
   createdAt: Date;

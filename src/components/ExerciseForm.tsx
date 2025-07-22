@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Upload, FileText } from 'lucide-react';
 import { medicalSubjects } from '@/utils/subjects';
 import { Exercise, Question } from '@/types/medical';
 import { useToast } from '@/hooks/use-toast';
@@ -18,13 +18,19 @@ const exerciseSchema = z.object({
   title: z.string().min(1, 'Título é obrigatório'),
   description: z.string().optional(),
   subjectId: z.string().min(1, 'Disciplina é obrigatória'),
-  link: z.string().url('Link deve ser uma URL válida'),
   difficulty: z.enum(['easy', 'medium', 'hard']),
 });
 
 interface ExerciseFormProps {
   onSave: (exercise: Omit<Exercise, 'id' | 'createdAt' | 'lastReviewedAt' | 'nextReviewAt' | 'reviewCount' | 'successRate'>) => void;
   onCancel: () => void;
+}
+
+interface ImportedQuestion {
+  question: string;
+  options: string[];
+  correctAnswer: number;
+  explanation?: string;
 }
 
 export function ExerciseForm({ onSave, onCancel }: ExerciseFormProps) {
@@ -37,10 +43,51 @@ export function ExerciseForm({ onSave, onCancel }: ExerciseFormProps) {
       title: '',
       description: '',
       subjectId: '',
-      link: '',
       difficulty: 'medium',
     },
   });
+
+  const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const imported = JSON.parse(content) as ImportedQuestion[];
+        
+        if (!Array.isArray(imported)) {
+          throw new Error('O arquivo deve conter um array de questões');
+        }
+
+        const validatedQuestions = imported.map((q, index) => {
+          if (!q.question || !Array.isArray(q.options) || q.options.length !== 4 || typeof q.correctAnswer !== 'number') {
+            throw new Error(`Questão ${index + 1} tem formato inválido`);
+          }
+          return {
+            question: q.question,
+            options: q.options,
+            correctAnswer: q.correctAnswer,
+            explanation: q.explanation || ''
+          };
+        });
+
+        setQuestions(validatedQuestions);
+        toast({
+          title: "Questões importadas!",
+          description: `${validatedQuestions.length} questões foram importadas com sucesso.`,
+        });
+      } catch (error) {
+        toast({
+          title: "Erro na importação",
+          description: error instanceof Error ? error.message : "Formato de arquivo inválido",
+          variant: "destructive"
+        });
+      }
+    };
+    reader.readAsText(file);
+  };
 
   const addQuestion = () => {
     setQuestions([...questions, {
@@ -86,7 +133,6 @@ export function ExerciseForm({ onSave, onCancel }: ExerciseFormProps) {
       title: values.title,
       description: values.description || '',
       subjectId: values.subjectId,
-      link: values.link,
       difficulty: values.difficulty,
       questions: questionsWithIds
     };
@@ -183,20 +229,6 @@ export function ExerciseForm({ onSave, onCancel }: ExerciseFormProps) {
                   )}
                 />
               </div>
-
-              <FormField
-                control={form.control}
-                name="link"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Link do Material</FormLabel>
-                    <FormControl>
-                      <Input placeholder="https://exemplo.com/material" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
             </form>
           </Form>
         </CardContent>
@@ -206,10 +238,37 @@ export function ExerciseForm({ onSave, onCancel }: ExerciseFormProps) {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Questões de Múltipla Escolha</CardTitle>
-            <Button onClick={addQuestion} size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Adicionar Questão
-            </Button>
+            <div className="flex gap-2">
+              <div className="relative">
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleFileImport}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+                <Button variant="outline" size="sm">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Importar JSON
+                </Button>
+              </div>
+              <Button onClick={addQuestion} size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Adicionar Questão
+              </Button>
+            </div>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            <p>Importe um arquivo JSON com o formato:</p>
+            <pre className="mt-2 p-2 bg-muted rounded text-xs">
+{`[
+  {
+    "question": "Sua pergunta aqui?",
+    "options": ["Opção A", "Opção B", "Opção C", "Opção D"],
+    "correctAnswer": 0,
+    "explanation": "Explicação opcional"
+  }
+]`}
+            </pre>
           </div>
         </CardHeader>
         <CardContent>

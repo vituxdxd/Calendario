@@ -64,9 +64,6 @@ export function StudyDashboard({ exercises, onExerciseStart, onDateSelect, selec
     }).filter(stat => stat.totalExercises > 0);
   }, [exercises]);
 
-  const handleViewLink = (link: string) => {
-    window.open(link, '_blank');
-  };
 
   return (
     <div className="space-y-6">
@@ -203,7 +200,6 @@ export function StudyDashboard({ exercises, onExerciseStart, onDateSelect, selec
                     key={exercise.id}
                     exercise={exercise}
                     onStart={onExerciseStart}
-                    onViewLink={handleViewLink}
                   />
                 ))}
               </div>
@@ -233,7 +229,6 @@ export function StudyDashboard({ exercises, onExerciseStart, onDateSelect, selec
                     key={exercise.id}
                     exercise={exercise}
                     onStart={onExerciseStart}
-                    onViewLink={handleViewLink}
                   />
                 ))}
               </div>
@@ -261,7 +256,6 @@ export function StudyDashboard({ exercises, onExerciseStart, onDateSelect, selec
                     key={exercise.id}
                     exercise={exercise}
                     onStart={onExerciseStart}
-                    onViewLink={handleViewLink}
                   />
                 ))}
               </div>

@@ -11,10 +11,9 @@ import { ptBR } from 'date-fns/locale';
 interface ExerciseCardProps {
   exercise: Exercise;
   onStart: (exercise: Exercise) => void;
-  onViewLink: (link: string) => void;
 }
 
-export function ExerciseCard({ exercise, onStart, onViewLink }: ExerciseCardProps) {
+export function ExerciseCard({ exercise, onStart }: ExerciseCardProps) {
   const subject = getSubjectById(exercise.subjectId);
   
   const getDifficultyColor = (difficulty: string) => {
@@ -93,15 +92,8 @@ export function ExerciseCard({ exercise, onStart, onViewLink }: ExerciseCardProp
           </div>
 
           <div className="flex gap-2">
-            <Button onClick={() => onStart(exercise)} className="flex-1">
+            <Button onClick={() => onStart(exercise)} className="w-full">
               Iniciar Exercício
-            </Button>
-            <Button 
-              variant="outline" 
-              size="icon"
-              onClick={() => onViewLink(exercise.link)}
-            >
-              <ExternalLink className="h-4 w-4" />
             </Button>
           </div>
         </div>
