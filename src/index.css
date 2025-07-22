@@ -8,35 +8,54 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 210 20% 98%;
+    --foreground: 215 25% 27%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 215 25% 27%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 215 25% 27%;
 
-    --primary: 222.2 47.4% 11.2%;
+    --primary: 200 95% 45%;
     --primary-foreground: 210 40% 98%;
 
     --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary-foreground: 215 25% 27%;
 
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 142 76% 36%;
+    --accent-foreground: 210 40% 98%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --ring: 200 95% 45%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
+
+    /* Cores personalizadas para disciplinas */
+    --medical-primary: 200 95% 45%;
+    --medical-secondary: 142 76% 36%;
+    --medical-accent: 35 91% 65%;
+    --medical-warning: 25 95% 53%;
+    --medical-info: 210 92% 45%;
+    
+    /* Gradientes */
+    --gradient-primary: linear-gradient(135deg, hsl(200 95% 45%), hsl(210 92% 45%));
+    --gradient-success: linear-gradient(135deg, hsl(142 76% 36%), hsl(120 60% 50%));
+    --gradient-warm: linear-gradient(135deg, hsl(35 91% 65%), hsl(25 95% 53%));
+    
+    /* Sombras */
+    --shadow-soft: 0 4px 20px -2px hsl(200 95% 45% / 0.1);
+    --shadow-medium: 0 8px 30px -4px hsl(200 95% 45% / 0.15);
+    --shadow-strong: 0 12px 40px -8px hsl(200 95% 45% / 0.25);
+
+    --radius: 0.75rem;
 
     --sidebar-background: 0 0% 98%;
 
