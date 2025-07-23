@@ -87,6 +87,14 @@ const Index = () => {
     setCurrentView('dashboard');
   };
 
+  const handleDeleteExercise = (exercise: Exercise) => {
+    setExercises(exercises.filter(ex => ex.id !== exercise.id));
+    toast({
+      title: "Exercício deletado",
+      description: `${exercise.title} foi removido com sucesso.`,
+    });
+  };
+
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
   };
@@ -191,6 +199,7 @@ const Index = () => {
               <StudyDashboard
                 exercises={exercises}
                 onExerciseStart={handleStartExercise}
+                onExerciseDelete={handleDeleteExercise}
                 onDateSelect={handleDateSelect}
                 selectedDate={selectedDate}
               />

@@ -15,11 +15,12 @@ import { BarChart, TrendingUp, Clock, Target, BookOpen, CheckCircle2 } from 'luc
 interface StudyDashboardProps {
   exercises: Exercise[];
   onExerciseStart: (exercise: Exercise) => void;
+  onExerciseDelete: (exercise: Exercise) => void;
   onDateSelect: (date: Date) => void;
   selectedDate?: Date;
 }
 
-export function StudyDashboard({ exercises, onExerciseStart, onDateSelect, selectedDate }: StudyDashboardProps) {
+export function StudyDashboard({ exercises, onExerciseStart, onExerciseDelete, onDateSelect, selectedDate }: StudyDashboardProps) {
   const [activeTab, setActiveTab] = useState('today');
 
   const todayExercises = useMemo(() => {
@@ -211,6 +212,7 @@ export function StudyDashboard({ exercises, onExerciseStart, onDateSelect, selec
                     key={exercise.id}
                     exercise={exercise}
                     onStart={onExerciseStart}
+                    onDelete={onExerciseDelete}
                   />
                 ))}
               </div>
@@ -240,6 +242,7 @@ export function StudyDashboard({ exercises, onExerciseStart, onDateSelect, selec
                     key={exercise.id}
                     exercise={exercise}
                     onStart={onExerciseStart}
+                    onDelete={onExerciseDelete}
                   />
                 ))}
               </div>
@@ -267,6 +270,7 @@ export function StudyDashboard({ exercises, onExerciseStart, onDateSelect, selec
                     key={exercise.id}
                     exercise={exercise}
                     onStart={onExerciseStart}
+                    onDelete={onExerciseDelete}
                   />
                 ))}
               </div>

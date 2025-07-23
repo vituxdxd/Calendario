@@ -4,16 +4,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Clock, ExternalLink, BarChart3, Calendar } from 'lucide-react';
+import { Clock, ExternalLink, BarChart3, Calendar, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface ExerciseCardProps {
   exercise: Exercise;
   onStart: (exercise: Exercise) => void;
+  onDelete: (exercise: Exercise) => void;
 }
 
-export function ExerciseCard({ exercise, onStart }: ExerciseCardProps) {
+export function ExerciseCard({ exercise, onStart, onDelete }: ExerciseCardProps) {
   const subject = getSubjectById(exercise.subjectId);
   
   const getDifficultyColor = (difficulty: string) => {
@@ -92,8 +93,16 @@ export function ExerciseCard({ exercise, onStart }: ExerciseCardProps) {
           </div>
 
           <div className="flex gap-2">
-            <Button onClick={() => onStart(exercise)} className="w-full">
+            <Button onClick={() => onStart(exercise)} className="flex-1">
               Iniciar Exercício
+            </Button>
+            <Button 
+              onClick={() => onDelete(exercise)} 
+              variant="destructive" 
+              size="icon"
+              className="shrink-0"
+            >
+              <Trash2 className="h-4 w-4" />
             </Button>
           </div>
         </div>
