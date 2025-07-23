@@ -9,6 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar } from '@/components/Calendar';
 import { ExerciseCard } from '@/components/ExerciseCard';
+import { GoogleCalendarIntegration } from '@/components/GoogleCalendarIntegration';
 import { BarChart, TrendingUp, Clock, Target, BookOpen, CheckCircle2 } from 'lucide-react';
 
 interface StudyDashboardProps {
@@ -24,6 +25,13 @@ export function StudyDashboard({ exercises, onExerciseStart, onDateSelect, selec
   const todayExercises = useMemo(() => {
     return exercises.filter(exercise => 
       isToday(new Date(exercise.nextReviewAt))
+    );
+  }, [exercises]);
+
+  const pendingExercises = useMemo(() => {
+    const now = new Date();
+    return exercises.filter(exercise => 
+      new Date(exercise.nextReviewAt) <= now && !exercise.lastReviewedAt
     );
   }, [exercises]);
 
@@ -164,6 +172,9 @@ export function StudyDashboard({ exercises, onExerciseStart, onDateSelect, selec
           </CardContent>
         </Card>
       </div>
+
+      {/* Google Calendar Integration */}
+      <GoogleCalendarIntegration pendingExercises={pendingExercises} />
 
       {/* Exercises */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
