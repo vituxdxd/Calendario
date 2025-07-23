@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Exercise, Question, AnswerLog } from '@/types/medical';
 import { getSubjectById } from '@/utils/subjects';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,11 +28,40 @@ export function QuizInterface({ exercise, onComplete, onCancel }: QuizInterfaceP
   const currentQuestion = exercise.questions[currentQuestionIndex];
   const progress = ((currentQuestionIndex + 1) / exercise.questions.length) * 100;
 
-  const handleAnswerSelect = (answerIndex: number) => {
+  // Embaralha as alternativas toda vez que a questão muda
+  const shuffledOptions = useMemo(() => {
+    if (!currentQuestion) return [];
+    
+    const options = currentQuestion.options.map((option, index) => ({
+      text: option,
+      originalIndex: index
+    }));
+    
+    // Embaralha o array
+    for (let i = options.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [options[i], options[j]] = [options[j], options[i]];
+    }
+    
+    return options;
+  }, [currentQuestion, currentQuestionIndex]); // Reembaralha quando a questão muda
+
+  // Mapeia o índice embaralhado para o índice original
+  const getOriginalIndex = (shuffledIndex: number) => {
+    return shuffledOptions[shuffledIndex]?.originalIndex ?? 0;
+  };
+
+  // Mapeia o índice original para o índice embaralhado
+  const getShuffledIndex = (originalIndex: number) => {
+    return shuffledOptions.findIndex(option => option.originalIndex === originalIndex);
+  };
+
+  const handleAnswerSelect = (shuffledIndex: number) => {
     if (showResult) return;
     
+    const originalIndex = getOriginalIndex(shuffledIndex);
     const newSelectedAnswers = [...selectedAnswers];
-    newSelectedAnswers[currentQuestionIndex] = answerIndex;
+    newSelectedAnswers[currentQuestionIndex] = originalIndex;
     setSelectedAnswers(newSelectedAnswers);
   };
 
@@ -138,16 +167,17 @@ export function QuizInterface({ exercise, onComplete, onCancel }: QuizInterfaceP
             </div>
 
             <div className="space-y-3">
-              {currentQuestion.options.map((option, index) => {
-                const isSelected = selectedAnswers[currentQuestionIndex] === index;
-                const isCorrect = index === currentQuestion.correctAnswer;
+              {shuffledOptions.map((option, shuffledIndex) => {
+                const originalIndex = option.originalIndex;
+                const isSelected = selectedAnswers[currentQuestionIndex] === originalIndex;
+                const isCorrect = originalIndex === currentQuestion.correctAnswer;
                 const showCorrectAnswer = showResult && isCorrect;
                 const showWrongAnswer = showResult && isSelected && !isCorrect;
 
                 return (
                   <button
-                    key={index}
-                    onClick={() => handleAnswerSelect(index)}
+                    key={shuffledIndex}
+                    onClick={() => handleAnswerSelect(shuffledIndex)}
                     disabled={showResult}
                     className={`
                       w-full p-4 text-left rounded-lg border transition-all
@@ -159,9 +189,9 @@ export function QuizInterface({ exercise, onComplete, onCancel }: QuizInterfaceP
                   >
                     <div className="flex items-center gap-3">
                       <Badge variant={isSelected && !showResult ? "default" : "outline"}>
-                        {String.fromCharCode(65 + index)}
+                        {String.fromCharCode(65 + shuffledIndex)}
                       </Badge>
-                      <span className="flex-1">{option}</span>
+                      <span className="flex-1">{option.text}</span>
                       {showCorrectAnswer && <CheckCircle className="h-5 w-5 text-green-600" />}
                       {showWrongAnswer && <XCircle className="h-5 w-5 text-red-600" />}
                     </div>
