@@ -48,6 +48,11 @@ export function ExerciseCard({ exercise, onStart, onDelete }: ExerciseCardProps)
               <Badge className={getDifficultyColor(exercise.difficulty)}>
                 {getDifficultyLabel(exercise.difficulty)}
               </Badge>
+              {exercise.isSimulado && (
+                <Badge variant="secondary" className="bg-purple-100 text-purple-800">
+                  Simulado
+                </Badge>
+              )}
             </div>
             <CardTitle className="text-lg line-clamp-2">
               {exercise.title}

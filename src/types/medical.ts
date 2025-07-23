@@ -12,6 +12,7 @@ export interface Exercise {
   title: string;
   description: string;
   difficulty: 'easy' | 'medium' | 'hard';
+  isSimulado: boolean;
   questions: Question[];
   createdAt: Date;
   lastReviewedAt?: Date;

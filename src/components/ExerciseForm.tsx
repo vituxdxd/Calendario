@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Plus, Trash2, Upload, FileText } from 'lucide-react';
 import { medicalSubjects } from '@/utils/subjects';
 import { Exercise, Question } from '@/types/medical';
@@ -19,6 +20,7 @@ const exerciseSchema = z.object({
   description: z.string().optional(),
   subjectId: z.string().min(1, 'Disciplina é obrigatória'),
   difficulty: z.enum(['easy', 'medium', 'hard']),
+  isSimulado: z.boolean().default(false),
 });
 
 interface ExerciseFormProps {
@@ -44,6 +46,7 @@ export function ExerciseForm({ onSave, onCancel }: ExerciseFormProps) {
       description: '',
       subjectId: '',
       difficulty: 'medium',
+      isSimulado: false,
     },
   });
 
@@ -134,6 +137,7 @@ export function ExerciseForm({ onSave, onCancel }: ExerciseFormProps) {
       description: values.description || '',
       subjectId: values.subjectId,
       difficulty: values.difficulty,
+      isSimulado: values.isSimulado,
       questions: questionsWithIds
     };
 
@@ -228,6 +232,31 @@ export function ExerciseForm({ onSave, onCancel }: ExerciseFormProps) {
                     </FormItem>
                   )}
                 />
+
+                <div className="flex items-center space-x-2">
+                  <FormField
+                    control={form.control}
+                    name="isSimulado"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">
+                            Questão de Simulado
+                          </FormLabel>
+                          <div className="text-sm text-muted-foreground">
+                            Marcar como questão especial de simulado
+                          </div>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
             </form>
           </Form>

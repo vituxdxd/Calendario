@@ -25,34 +25,47 @@ export function StudyDashboard({ exercises, onExerciseStart, onExerciseDelete, o
 
   const todayExercises = useMemo(() => {
     return exercises.filter(exercise => 
-      isToday(new Date(exercise.nextReviewAt))
+      isToday(new Date(exercise.nextReviewAt)) && !exercise.isSimulado
+    );
+  }, [exercises]);
+
+  const todaySimulados = useMemo(() => {
+    return exercises.filter(exercise => 
+      isToday(new Date(exercise.nextReviewAt)) && exercise.isSimulado
     );
   }, [exercises]);
 
   const pendingExercises = useMemo(() => {
     const now = new Date();
     return exercises.filter(exercise => 
-      new Date(exercise.nextReviewAt) <= now && !exercise.lastReviewedAt
+      new Date(exercise.nextReviewAt) <= now && !exercise.lastReviewedAt && !exercise.isSimulado
     );
   }, [exercises]);
 
   const selectedDateExercises = useMemo(() => {
     if (!selectedDate) return [];
     return exercises.filter(exercise => 
-      isSameDay(new Date(exercise.nextReviewAt), selectedDate)
+      isSameDay(new Date(exercise.nextReviewAt), selectedDate) && !exercise.isSimulado
+    );
+  }, [exercises, selectedDate]);
+
+  const selectedDateSimulados = useMemo(() => {
+    if (!selectedDate) return [];
+    return exercises.filter(exercise => 
+      isSameDay(new Date(exercise.nextReviewAt), selectedDate) && exercise.isSimulado
     );
   }, [exercises, selectedDate]);
 
   const stats = useMemo(() => {
     const total = exercises.length;
     const completed = exercises.filter(ex => ex.lastReviewedAt).length;
-    const todayDue = todayExercises.length;
+    const todayDue = todayExercises.length + todaySimulados.length;
     const avgSuccessRate = exercises.length > 0 
       ? exercises.reduce((sum, ex) => sum + ex.successRate, 0) / exercises.length 
       : 0;
 
     return { total, completed, todayDue, avgSuccessRate };
-  }, [exercises, todayExercises]);
+  }, [exercises, todayExercises, todaySimulados]);
 
   const subjectStats = useMemo(() => {
     return medicalSubjects.map(subject => {
@@ -183,9 +196,12 @@ export function StudyDashboard({ exercises, onExerciseStart, onExerciseDelete, o
           <TabsTrigger value="today">
             Hoje ({todayExercises.length})
           </TabsTrigger>
+          <TabsTrigger value="simulados">
+            Simulados ({exercises.filter(ex => ex.isSimulado).length})
+          </TabsTrigger>
           <TabsTrigger value="selected" disabled={!selectedDate}>
             {selectedDate ? format(selectedDate, 'dd/MM', { locale: ptBR }) : 'Data Selecionada'} 
-            {selectedDate ? ` (${selectedDateExercises.length})` : ''}
+            {selectedDate ? ` (${selectedDateExercises.length + selectedDateSimulados.length})` : ''}
           </TabsTrigger>
           <TabsTrigger value="all">
             Todos ({exercises.length})
@@ -193,21 +209,77 @@ export function StudyDashboard({ exercises, onExerciseStart, onExerciseDelete, o
         </TabsList>
 
         <TabsContent value="today" className="mt-6">
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Exercícios Regulares para Hoje</h3>
+              {todayExercises.length === 0 ? (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <div className="text-4xl mb-4">📚</div>
+                    <h3 className="text-lg font-medium mb-2">Nenhum exercício regular para hoje!</h3>
+                    <p className="text-muted-foreground">
+                      Você está em dia com seus estudos regulares.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {todayExercises.map(exercise => (
+                    <ExerciseCard
+                      key={exercise.id}
+                      exercise={exercise}
+                      onStart={onExerciseStart}
+                      onDelete={onExerciseDelete}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Simulados para Hoje</h3>
+              {todaySimulados.length === 0 ? (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <div className="text-4xl mb-4">🎯</div>
+                    <h3 className="text-lg font-medium mb-2">Nenhum simulado para hoje!</h3>
+                    <p className="text-muted-foreground">
+                      Não há simulados programados para hoje.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {todaySimulados.map(exercise => (
+                    <ExerciseCard
+                      key={exercise.id}
+                      exercise={exercise}
+                      onStart={onExerciseStart}
+                      onDelete={onExerciseDelete}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="simulados" className="mt-6">
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Exercícios para Hoje</h3>
-            {todayExercises.length === 0 ? (
+            <h3 className="text-lg font-semibold">Todos os Simulados</h3>
+            {exercises.filter(ex => ex.isSimulado).length === 0 ? (
               <Card>
                 <CardContent className="p-8 text-center">
-                  <div className="text-4xl mb-4">🎉</div>
-                  <h3 className="text-lg font-medium mb-2">Nenhum exercício para hoje!</h3>
+                  <div className="text-4xl mb-4">🎯</div>
+                  <h3 className="text-lg font-medium mb-2">Nenhum simulado criado</h3>
                   <p className="text-muted-foreground">
-                    Você está em dia com seus estudos. Continue assim!
+                    Crie exercícios marcados como "Simulado" para vê-los aqui.
                   </p>
                 </CardContent>
               </Card>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {todayExercises.map(exercise => (
+                {exercises.filter(ex => ex.isSimulado).map(exercise => (
                   <ExerciseCard
                     key={exercise.id}
                     exercise={exercise}
@@ -221,32 +293,62 @@ export function StudyDashboard({ exercises, onExerciseStart, onExerciseDelete, o
         </TabsContent>
 
         <TabsContent value="selected" className="mt-6">
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">
-              Exercícios para {selectedDate ? format(selectedDate, 'dd/MM/yyyy', { locale: ptBR }) : ''}
-            </h3>
-            {selectedDateExercises.length === 0 ? (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <div className="text-4xl mb-4">📅</div>
-                  <h3 className="text-lg font-medium mb-2">Nenhum exercício para esta data</h3>
-                  <p className="text-muted-foreground">
-                    Não há exercícios programados para esta data.
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {selectedDateExercises.map(exercise => (
-                  <ExerciseCard
-                    key={exercise.id}
-                    exercise={exercise}
-                    onStart={onExerciseStart}
-                    onDelete={onExerciseDelete}
-                  />
-                ))}
-              </div>
-            )}
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">
+                Exercícios Regulares para {selectedDate ? format(selectedDate, 'dd/MM/yyyy', { locale: ptBR }) : ''}
+              </h3>
+              {selectedDateExercises.length === 0 ? (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <div className="text-4xl mb-4">📅</div>
+                    <h3 className="text-lg font-medium mb-2">Nenhum exercício regular para esta data</h3>
+                    <p className="text-muted-foreground">
+                      Não há exercícios regulares programados para esta data.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {selectedDateExercises.map(exercise => (
+                    <ExerciseCard
+                      key={exercise.id}
+                      exercise={exercise}
+                      onStart={onExerciseStart}
+                      onDelete={onExerciseDelete}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">
+                Simulados para {selectedDate ? format(selectedDate, 'dd/MM/yyyy', { locale: ptBR }) : ''}
+              </h3>
+              {selectedDateSimulados.length === 0 ? (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <div className="text-4xl mb-4">🎯</div>
+                    <h3 className="text-lg font-medium mb-2">Nenhum simulado para esta data</h3>
+                    <p className="text-muted-foreground">
+                      Não há simulados programados para esta data.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {selectedDateSimulados.map(exercise => (
+                    <ExerciseCard
+                      key={exercise.id}
+                      exercise={exercise}
+                      onStart={onExerciseStart}
+                      onDelete={onExerciseDelete}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </TabsContent>
 
