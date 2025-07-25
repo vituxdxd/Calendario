@@ -1,3 +1,5 @@
+npm run dev
+
 # Welcome to your Lovable project
 
 ## Project info

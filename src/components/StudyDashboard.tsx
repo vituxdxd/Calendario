@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Exercise } from '@/types/medical';
 import { ExerciseCard } from './ExerciseCard';
 import { Calendar } from './Calendar';
+import { GoogleCalendarIntegration, GoogleCalendarFunctions } from './GoogleCalendarIntegration';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +31,7 @@ export function StudyDashboard({
   onChangeDate 
 }: StudyDashboardProps) {
   const [activeTab, setActiveTab] = useState('overview');
+  const [googleCalendarFunctions, setGoogleCalendarFunctions] = useState<GoogleCalendarFunctions | null>(null);
 
   // Garantir que exercises sempre seja um array válido
   const safeExercises = exercises || [];
@@ -72,13 +74,11 @@ export function StudyDashboard({
     : categorizedExercises.all;
 
   return (
-    <div className="space-y-8 fade-in">
+    <div className="space-y-8">
       {/* Header Section */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
         <div className="space-y-2">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
-            Dashboard de Estudos
-          </h1>
+          <h1 className="text-3xl font-bold">Dashboard de Estudos</h1>
           <p className="text-muted-foreground">
             Acompanhe seu progresso e mantenha-se organizado nos estudos
           </p>
@@ -94,7 +94,6 @@ export function StudyDashboard({
               variant="ghost" 
               size="sm" 
               onClick={() => onDateSelect(new Date())}
-              className="hover-lift"
             >
               Limpar filtro
             </Button>
@@ -104,65 +103,60 @@ export function StudyDashboard({
 
       {/* Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[
-          {
-            title: "Total de Exercícios",
-            value: metrics.totalExercises,
-            icon: BookOpen,
-            gradient: "from-blue-500 to-cyan-500",
-            bgGradient: "from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20"
-          },
-          {
-            title: "Pendentes Hoje",
-            value: metrics.dueToday,
-            icon: Target,
-            gradient: "from-orange-500 to-red-500",
-            bgGradient: "from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20",
-            urgent: metrics.dueToday > 0
-          },
-          {
-            title: "Concluídos",
-            value: metrics.completed,
-            icon: Star,
-            gradient: "from-emerald-500 to-teal-500",
-            bgGradient: "from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20"
-          },
-          {
-            title: "Taxa de Sucesso",
-            value: `${metrics.avgSuccessRate}%`,
-            icon: TrendingUp,
-            gradient: "from-purple-500 to-indigo-500",
-            bgGradient: "from-purple-50 to-indigo-50 dark:from-purple-950/20 dark:to-indigo-950/20"
-          }
-        ].map((metric, index) => (
-          <Card key={index} className={`group hover-lift border-0 shadow-soft bg-gradient-to-br ${metric.bgGradient} backdrop-blur scale-in`} style={{animationDelay: `${index * 100}ms`}}>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {metric.title}
-                  </p>
-                  <p className={`text-2xl font-bold ${metric.urgent ? 'text-red-600 dark:text-red-400' : 'text-foreground'}`}>
-                    {metric.value}
-                    {metric.urgent && (
-                      <Zap className="inline h-5 w-5 ml-1 text-red-500 animate-pulse" />
-                    )}
-                  </p>
-                </div>
-                <div className={`p-3 rounded-xl bg-gradient-to-br ${metric.gradient} shadow-lg group-hover:shadow-xl transition-all duration-300`}>
-                  <metric.icon className="h-6 w-6 text-white" />
-                </div>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">Total de Exercícios</p>
+                <p className="text-2xl font-bold">{metrics.totalExercises}</p>
               </div>
-            </CardContent>
-          </Card>
-        ))}
+              <BookOpen className="h-6 w-6 text-blue-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">Pendentes Hoje</p>
+                <p className="text-2xl font-bold text-orange-600">{metrics.dueToday}</p>
+              </div>
+              <Target className="h-6 w-6 text-orange-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">Concluídos</p>
+                <p className="text-2xl font-bold text-green-600">{metrics.completed}</p>
+              </div>
+              <Star className="h-6 w-6 text-green-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">Taxa de Sucesso</p>
+                <p className="text-2xl font-bold text-purple-600">{metrics.avgSuccessRate}%</p>
+              </div>
+              <TrendingUp className="h-6 w-6 text-purple-500" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Exercises Section */}
         <div className="lg:col-span-2 space-y-6">
-          <Card className="border-0 shadow-soft bg-gradient-card backdrop-blur">
+          <Card>
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
@@ -176,17 +170,17 @@ export function StudyDashboard({
             </CardHeader>
             <CardContent>
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-4 mb-6 bg-muted/50">
-                  <TabsTrigger value="overview" className="text-xs sm:text-sm">
+                <TabsList className="grid w-full grid-cols-4 mb-6">
+                  <TabsTrigger value="overview">
                     Todos ({categorizedExercises.all.length})
                   </TabsTrigger>
-                  <TabsTrigger value="overdue" className="text-xs sm:text-sm">
+                  <TabsTrigger value="overdue">
                     Atrasados ({categorizedExercises.overdue.length})
                   </TabsTrigger>
-                  <TabsTrigger value="today" className="text-xs sm:text-sm">
+                  <TabsTrigger value="today">
                     Hoje ({categorizedExercises.dueToday.length})
                   </TabsTrigger>
-                  <TabsTrigger value="upcoming" className="text-xs sm:text-sm">
+                  <TabsTrigger value="upcoming">
                     Próximos ({categorizedExercises.upcoming.length})
                   </TabsTrigger>
                 </TabsList>
@@ -195,16 +189,16 @@ export function StudyDashboard({
                   {selectedDate ? (
                     filteredExercises.length > 0 ? (
                       <div className="space-y-4">
-                        {filteredExercises.map((exercise, index) => (
-                          <div key={exercise.id} className="slide-up" style={{animationDelay: `${index * 100}ms`}}>
-                            <ExerciseCard
-                              exercise={exercise}
-                              onStart={onExerciseStart}
-                              onDelete={onExerciseDelete}
-                              onReview={onReview}
-                              onChangeDate={onChangeDate}
-                            />
-                          </div>
+                        {filteredExercises.map((exercise) => (
+                          <ExerciseCard
+                            key={exercise.id}
+                            exercise={exercise}
+                            onStart={onExerciseStart}
+                            onDelete={onExerciseDelete}
+                            onReview={onReview}
+                            onChangeDate={onChangeDate}
+                            googleCalendarFunctions={googleCalendarFunctions}
+                          />
                         ))}
                       </div>
                     ) : (
@@ -213,23 +207,20 @@ export function StudyDashboard({
                         <p className="text-lg font-medium text-muted-foreground">
                           Nenhum exercício para esta data
                         </p>
-                        <p className="text-sm text-muted-foreground mt-2">
-                          Selecione outra data no calendário
-                        </p>
                       </div>
                     )
                   ) : (
                     <div className="space-y-4">
-                      {safeExercises.map((exercise, index) => (
-                        <div key={exercise.id} className="slide-up" style={{animationDelay: `${index * 50}ms`}}>
-                          <ExerciseCard
-                            exercise={exercise}
-                            onStart={onExerciseStart}
-                            onDelete={onExerciseDelete}
-                            onReview={onReview}
-                            onChangeDate={onChangeDate}
-                          />
-                        </div>
+                      {safeExercises.map((exercise) => (
+                        <ExerciseCard
+                          key={exercise.id}
+                          exercise={exercise}
+                          onStart={onExerciseStart}
+                          onDelete={onExerciseDelete}
+                          onReview={onReview}
+                          onChangeDate={onChangeDate}
+                          googleCalendarFunctions={googleCalendarFunctions}
+                        />
                       ))}
                     </div>
                   )}
@@ -239,16 +230,16 @@ export function StudyDashboard({
                   <TabsContent key={category} value={category} className="space-y-4">
                     {(categorizedExercises[category as keyof typeof categorizedExercises] || []).length > 0 ? (
                       <div className="space-y-4">
-                        {(categorizedExercises[category as keyof typeof categorizedExercises] || []).map((exercise, index) => (
-                          <div key={exercise.id} className="slide-up" style={{animationDelay: `${index * 100}ms`}}>
-                            <ExerciseCard
-                              exercise={exercise}
-                              onStart={onExerciseStart}
-                              onDelete={onExerciseDelete}
-                              onReview={onReview}
-                              onChangeDate={onChangeDate}
-                            />
-                          </div>
+                        {(categorizedExercises[category as keyof typeof categorizedExercises] || []).map((exercise) => (
+                          <ExerciseCard
+                            key={exercise.id}
+                            exercise={exercise}
+                            onStart={onExerciseStart}
+                            onDelete={onExerciseDelete}
+                            onReview={onReview}
+                            onChangeDate={onChangeDate}
+                            googleCalendarFunctions={googleCalendarFunctions}
+                          />
                         ))}
                       </div>
                     ) : (
@@ -258,9 +249,6 @@ export function StudyDashboard({
                           {category === 'overdue' && 'Nenhum exercício atrasado!'}
                           {category === 'today' && 'Nenhum exercício para hoje!'}
                           {category === 'upcoming' && 'Nenhum exercício próximo!'}
-                        </p>
-                        <p className="text-sm text-muted-foreground mt-2">
-                          Continue assim! 🎉
                         </p>
                       </div>
                     )}
@@ -273,7 +261,7 @@ export function StudyDashboard({
 
         {/* Calendar Section */}
         <div className="space-y-6">
-          <Card className="border-0 shadow-soft bg-gradient-card backdrop-blur scale-in">
+          <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2">
                 <CalendarDays className="h-5 w-5 text-primary" />
@@ -290,7 +278,7 @@ export function StudyDashboard({
           </Card>
 
           {/* Quick Stats */}
-          <Card className="border-0 shadow-soft bg-gradient-card backdrop-blur">
+          <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2 text-base">
                 <TrendingUp className="h-4 w-4 text-primary" />
@@ -318,6 +306,17 @@ export function StudyDashboard({
               </div>
             </CardContent>
           </Card>
+
+          {/* Google Calendar Integration */}
+          <GoogleCalendarIntegration 
+            exercises={safeExercises}
+            onSyncUpdate={() => {
+              // Callback quando a sincronização for concluída
+            }}
+            onFunctionsReady={(functions) => {
+              setGoogleCalendarFunctions(functions);
+            }}
+          />
         </div>
       </div>
     </div>

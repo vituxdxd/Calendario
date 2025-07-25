@@ -4,13 +4,23 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Calendar, CheckCircle, AlertCircle, Loader2, ExternalLink } from 'lucide-react';
+import { Calendar, CheckCircle, AlertCircle, Loader2, ExternalLink, RotateCcw, CloudOff, Cloud } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface GoogleCalendarIntegrationProps {
   exercises: Exercise[];
   onSyncUpdate?: () => void;
+  onSingleExerciseSync?: (exerciseId: string, isSync: boolean) => void;
+  onFunctionsReady?: (functions: GoogleCalendarFunctions) => void;
+}
+
+export interface GoogleCalendarFunctions {
+  syncSingle: (exerciseId: string) => Promise<boolean>;
+  removeSingle: (exerciseId: string) => Promise<boolean>;
+  isSync: (exerciseId: string) => boolean;
+  needsUpdate: (exerciseId: string) => boolean;
+  isAuthenticated: boolean;
 }
 
 interface CalendarEvent {
@@ -34,13 +44,14 @@ interface SyncedEvent {
   nextReviewAt: string; // Para detectar mudanças na data
 }
 
-export function GoogleCalendarIntegration({ exercises, onSyncUpdate }: GoogleCalendarIntegrationProps) {
+export function GoogleCalendarIntegration({ exercises, onSyncUpdate, onSingleExerciseSync, onFunctionsReady }: GoogleCalendarIntegrationProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [syncedEvents, setSyncedEvents] = useState<number>(0);
   const [syncedEventsMap, setSyncedEventsMap] = useState<Record<string, SyncedEvent>>({});
+  const [loadingExercises, setLoadingExercises] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   // Configurações do Google Calendar API
@@ -572,6 +583,276 @@ export function GoogleCalendarIntegration({ exercises, onSyncUpdate }: GoogleCal
     }
   };
 
+  // Sincronizar um exercício individual
+  const syncSingleExercise = async (exerciseId: string) => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Não conectado",
+        description: "Conecte-se primeiro ao Google Calendar.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    const exercise = exercises.find(ex => ex.id === exerciseId);
+    if (!exercise) {
+      toast({
+        title: "Erro",
+        description: "Exercício não encontrado.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    // Adicionar ao estado de loading
+    setLoadingExercises(prev => new Set([...prev, exerciseId]));
+
+    try {
+      const token = localStorage.getItem('google_calendar_token');
+      if (!token || !window.gapi?.client) {
+        throw new Error('API não carregada ou token inválido');
+      }
+
+      window.gapi.client.setToken({ access_token: token });
+
+      const currentNextReviewAt = new Date(exercise.nextReviewAt).toISOString();
+      const existingSyncedEvent = syncedEventsMap[exerciseId];
+
+      console.log(`🔄 Sincronizando exercício individual: "${exercise.title}"`);
+
+      // Se já existe, verificar se precisa atualizar
+      if (existingSyncedEvent) {
+        if (existingSyncedEvent.nextReviewAt !== currentNextReviewAt) {
+          console.log(`  🔄 Atualizando data do evento...`);
+          
+          // Deletar evento antigo
+          try {
+            await deleteCalendarEvent(existingSyncedEvent.googleEventId);
+          } catch (deleteError) {
+            console.warn('  ⚠️ Erro ao deletar evento antigo:', deleteError);
+          }
+
+          // Criar novo evento
+          const event: CalendarEvent = {
+            id: `medstride_${exercise.id}`,
+            summary: `📚 Revisão: ${exercise.title}`,
+            description: `Exercício de ${exercise.subjectId}\n\nDificuldade: ${exercise.difficulty}\nQuestões: ${exercise.questions.length}\n\nCriado pelo Med Stride Calendar`,
+            start: {
+              dateTime: currentNextReviewAt,
+              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            },
+            end: {
+              dateTime: new Date(new Date(exercise.nextReviewAt).getTime() + 60 * 60 * 1000).toISOString(),
+              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            },
+          };
+
+          const newEventResult = await createCalendarEvent(event);
+
+          // Atualizar mapa
+          const newMap = {
+            ...syncedEventsMap,
+            [exerciseId]: {
+              exerciseId,
+              googleEventId: newEventResult.id,
+              lastSyncDate: new Date().toISOString(),
+              nextReviewAt: currentNextReviewAt
+            }
+          };
+          saveSyncedEventsMap(newMap);
+
+          toast({
+            title: "Exercício atualizado!",
+            description: `"${exercise.title}" foi atualizado no Google Calendar.`,
+          });
+        } else {
+          toast({
+            title: "Já sincronizado",
+            description: `"${exercise.title}" já está atualizado no Google Calendar.`,
+          });
+        }
+      } else {
+        // Criar novo evento
+        console.log(`  🆕 Criando novo evento...`);
+        
+        const event: CalendarEvent = {
+          id: `medstride_${exercise.id}`,
+          summary: `📚 Revisão: ${exercise.title}`,
+          description: `Exercício de ${exercise.subjectId}\n\nDificuldade: ${exercise.difficulty}\nQuestões: ${exercise.questions.length}\n\nCriado pelo Med Stride Calendar`,
+          start: {
+            dateTime: currentNextReviewAt,
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          },
+          end: {
+            dateTime: new Date(new Date(exercise.nextReviewAt).getTime() + 60 * 60 * 1000).toISOString(),
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          },
+        };
+
+        const newEventResult = await createCalendarEvent(event);
+
+        // Adicionar ao mapa
+        const newMap = {
+          ...syncedEventsMap,
+          [exerciseId]: {
+            exerciseId,
+            googleEventId: newEventResult.id,
+            lastSyncDate: new Date().toISOString(),
+            nextReviewAt: currentNextReviewAt
+          }
+        };
+        saveSyncedEventsMap(newMap);
+
+        toast({
+          title: "Exercício sincronizado!",
+          description: `"${exercise.title}" foi adicionado ao Google Calendar.`,
+        });
+      }
+
+      if (onSingleExerciseSync) {
+        onSingleExerciseSync(exerciseId, true);
+      }
+
+      return true;
+    } catch (error: any) {
+      console.error('❌ Erro ao sincronizar exercício:', error);
+      
+      let errorMessage = "Não foi possível sincronizar o exercício.";
+      if (error.message) {
+        errorMessage = error.message;
+      }
+
+      toast({
+        title: "Erro na sincronização",
+        description: errorMessage,
+        variant: "destructive",
+      });
+
+      return false;
+    } finally {
+      // Remover do estado de loading
+      setLoadingExercises(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(exerciseId);
+        return newSet;
+      });
+    }
+  };
+
+  // Remover um exercício individual do Google Calendar
+  const removeSingleExercise = async (exerciseId: string) => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Não conectado",
+        description: "Conecte-se primeiro ao Google Calendar.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    const exercise = exercises.find(ex => ex.id === exerciseId);
+    const syncedEvent = syncedEventsMap[exerciseId];
+
+    if (!exercise || !syncedEvent) {
+      toast({
+        title: "Não encontrado",
+        description: "Exercício não está sincronizado com o Google Calendar.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    // Adicionar ao estado de loading
+    setLoadingExercises(prev => new Set([...prev, exerciseId]));
+
+    try {
+      console.log(`🗑️ Removendo exercício do Google Calendar: "${exercise.title}"`);
+      
+      await deleteCalendarEvent(syncedEvent.googleEventId);
+
+      // Remover do mapa
+      const newMap = { ...syncedEventsMap };
+      delete newMap[exerciseId];
+      saveSyncedEventsMap(newMap);
+
+      toast({
+        title: "Exercício removido!",
+        description: `"${exercise.title}" foi removido do Google Calendar.`,
+      });
+
+      if (onSingleExerciseSync) {
+        onSingleExerciseSync(exerciseId, false);
+      }
+
+      return true;
+    } catch (error: any) {
+      console.error('❌ Erro ao remover exercício:', error);
+      
+      // Se o evento não existe mais, considerar como sucesso
+      if (error.message?.includes('404') || error.message?.includes('não existe')) {
+        const newMap = { ...syncedEventsMap };
+        delete newMap[exerciseId];
+        saveSyncedEventsMap(newMap);
+
+        toast({
+          title: "Exercício removido!",
+          description: `"${exercise.title}" foi removido (evento não existia mais).`,
+        });
+
+        if (onSingleExerciseSync) {
+          onSingleExerciseSync(exerciseId, false);
+        }
+
+        return true;
+      }
+
+      toast({
+        title: "Erro ao remover",
+        description: "Não foi possível remover o exercício do Google Calendar.",
+        variant: "destructive",
+      });
+
+      return false;
+    } finally {
+      // Remover do estado de loading
+      setLoadingExercises(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(exerciseId);
+        return newSet;
+      });
+    }
+  };
+
+  // Verificar se um exercício está sincronizado
+  const isExerciseSynced = (exerciseId: string) => {
+    return !!syncedEventsMap[exerciseId];
+  };
+
+  // Verificar se um exercício precisa ser atualizado
+  const exerciseNeedsUpdate = (exerciseId: string) => {
+    const syncedEvent = syncedEventsMap[exerciseId];
+    const exercise = exercises.find(ex => ex.id === exerciseId);
+    
+    if (!syncedEvent || !exercise) return false;
+    
+    const currentNextReviewAt = new Date(exercise.nextReviewAt).toISOString();
+    return syncedEvent.nextReviewAt !== currentNextReviewAt;
+  };
+
+  // Exportar funções para componentes filhos
+  useEffect(() => {
+    if (onFunctionsReady) {
+      const functions: GoogleCalendarFunctions = {
+        syncSingle: syncSingleExercise,
+        removeSingle: removeSingleExercise,
+        isSync: isExerciseSynced,
+        needsUpdate: exerciseNeedsUpdate,
+        isAuthenticated
+      };
+      onFunctionsReady(functions);
+    }
+  }, [isAuthenticated, syncedEventsMap, onFunctionsReady]);
+
   return (
     <Card className="border-0 shadow-soft bg-gradient-card backdrop-blur">
       <CardHeader className="pb-4">
@@ -701,6 +982,90 @@ export function GoogleCalendarIntegration({ exercises, onSyncUpdate }: GoogleCal
                 </div>
               </div>
             )}
+
+            {/* Controles individuais */}
+            {exercises.length > 0 && (
+              <div className="mt-6 space-y-3">
+                <div className="text-sm font-medium text-center border-t pt-4">
+                  Controles Individuais
+                </div>
+                <div className="max-h-48 overflow-y-auto space-y-2">
+                  {exercises.map(exercise => {
+                    const isSynced = isExerciseSynced(exercise.id);
+                    const needsUpdate = exerciseNeedsUpdate(exercise.id);
+                    
+                    return (
+                      <div key={exercise.id} className="flex items-center justify-between p-2 bg-muted/30 rounded-lg text-xs">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{exercise.title}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            {isSynced ? (
+                              <Badge variant="secondary" className="text-xs px-1 py-0">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                {needsUpdate ? 'Desatualizado' : 'Sincronizado'}
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-xs px-1 py-0">
+                                <AlertCircle className="h-3 w-3 mr-1" />
+                                Não sincronizado
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 ml-2">
+                          {isSynced ? (
+                            <>
+                              {needsUpdate && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => syncSingleExercise(exercise.id)}
+                                  disabled={isSyncing || loadingExercises.has(exercise.id)}
+                                  className="text-xs px-2 py-1 h-6"
+                                >
+                                  {loadingExercises.has(exercise.id) ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <RotateCcw className="h-3 w-3" />
+                                  )}
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => removeSingleExercise(exercise.id)}
+                                disabled={isSyncing || loadingExercises.has(exercise.id)}
+                                className="text-xs px-2 py-1 h-6"
+                              >
+                                {loadingExercises.has(exercise.id) ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <CloudOff className="h-3 w-3" />
+                                )}
+                              </Button>
+                            </>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => syncSingleExercise(exercise.id)}
+                              disabled={isSyncing || loadingExercises.has(exercise.id)}
+                              className="text-xs px-2 py-1 h-6"
+                            >
+                              {loadingExercises.has(exercise.id) ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Cloud className="h-3 w-3" />
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </CardContent>
@@ -713,5 +1078,12 @@ declare global {
   interface Window {
     gapi: any;
     google: any;
+    GoogleCalendarManager: {
+      syncSingle: (exerciseId: string) => Promise<boolean>;
+      removeSingle: (exerciseId: string) => Promise<boolean>;
+      isSync: (exerciseId: string) => boolean;
+      needsUpdate: (exerciseId: string) => boolean;
+      isAuthenticated: boolean;
+    };
   }
 } 

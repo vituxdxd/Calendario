@@ -5,8 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, XCircle, Clock, ArrowRight, RotateCcw } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, ArrowRight, RotateCcw, BookOpen } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { ReviewMistakes } from './ReviewMistakes';
 
 interface QuizInterfaceProps {
   exercise: Exercise;
@@ -14,21 +16,33 @@ interface QuizInterfaceProps {
   onCancel: () => void;
 }
 
+interface QuizState {
+  currentQuestionIndex: number;
+  selectedAnswers: number[];
+  showResult: boolean;
+  startTime: number;
+  questionStartTime: number;
+  answersLog: AnswerLog[];
+  isCompleted: boolean;
+}
+
 export function QuizInterface({ exercise, onComplete, onCancel }: QuizInterfaceProps) {
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [selectedAnswers, setSelectedAnswers] = useState<number[]>([]);
-  const [showResult, setShowResult] = useState(false);
-  const [startTime] = useState(Date.now());
-  const [questionStartTime, setQuestionStartTime] = useState(Date.now());
-  const [answersLog, setAnswersLog] = useState<AnswerLog[]>([]);
-  const [isCompleted, setIsCompleted] = useState(false);
+  const [quizState, setQuizState] = useLocalStorage<QuizState>(`quiz-state-${exercise.id}`, {
+    currentQuestionIndex: 0,
+    selectedAnswers: [],
+    showResult: false,
+    startTime: Date.now(),
+    questionStartTime: Date.now(),
+    answersLog: [],
+    isCompleted: false
+  });
+
+  const [showReview, setShowReview] = useState(false);
   const { toast } = useToast();
-
   const subject = getSubjectById(exercise.subjectId);
-  const currentQuestion = exercise.questions[currentQuestionIndex];
-  const progress = ((currentQuestionIndex + 1) / exercise.questions.length) * 100;
+  const currentQuestion = exercise.questions[quizState.currentQuestionIndex];
+  const progress = ((quizState.currentQuestionIndex + 1) / exercise.questions.length) * 100;
 
-  // Embaralha as alternativas toda vez que a questão muda
   const shuffledOptions = useMemo(() => {
     if (!currentQuestion) return [];
     
@@ -37,71 +51,74 @@ export function QuizInterface({ exercise, onComplete, onCancel }: QuizInterfaceP
       originalIndex: index
     }));
     
-    // Embaralha o array
     for (let i = options.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [options[i], options[j]] = [options[j], options[i]];
     }
     
     return options;
-  }, [currentQuestion, currentQuestionIndex]); // Reembaralha quando a questão muda
+  }, [currentQuestion, quizState.currentQuestionIndex]);
 
-  // Mapeia o índice embaralhado para o índice original
   const getOriginalIndex = (shuffledIndex: number) => {
     return shuffledOptions[shuffledIndex]?.originalIndex ?? 0;
   };
 
-  // Mapeia o índice original para o índice embaralhado
-  const getShuffledIndex = (originalIndex: number) => {
-    return shuffledOptions.findIndex(option => option.originalIndex === originalIndex);
-  };
-
   const handleAnswerSelect = (shuffledIndex: number) => {
-    if (showResult) return;
+    if (quizState.showResult) return;
     
     const originalIndex = getOriginalIndex(shuffledIndex);
-    const newSelectedAnswers = [...selectedAnswers];
-    newSelectedAnswers[currentQuestionIndex] = originalIndex;
-    setSelectedAnswers(newSelectedAnswers);
+    const newSelectedAnswers = [...quizState.selectedAnswers];
+    newSelectedAnswers[quizState.currentQuestionIndex] = originalIndex;
+    
+    setQuizState({
+      ...quizState,
+      selectedAnswers: newSelectedAnswers
+    });
   };
 
   const handleNextQuestion = () => {
-    const timeSpent = Date.now() - questionStartTime;
-    const isCorrect = selectedAnswers[currentQuestionIndex] === currentQuestion.correctAnswer;
+    const timeSpent = Date.now() - quizState.questionStartTime;
+    const isCorrect = quizState.selectedAnswers[quizState.currentQuestionIndex] === currentQuestion.correctAnswer;
     
     const answerLog: AnswerLog = {
       questionId: currentQuestion.id,
-      selectedAnswer: selectedAnswers[currentQuestionIndex],
+      selectedAnswer: quizState.selectedAnswers[quizState.currentQuestionIndex],
       isCorrect,
       timeSpent
     };
 
-    setAnswersLog([...answersLog, answerLog]);
+    const newAnswersLog = [...quizState.answersLog, answerLog];
 
-    if (currentQuestionIndex < exercise.questions.length - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
-      setQuestionStartTime(Date.now());
-      setShowResult(false);
+    if (quizState.currentQuestionIndex < exercise.questions.length - 1) {
+      setQuizState({
+        ...quizState,
+        currentQuestionIndex: quizState.currentQuestionIndex + 1,
+        questionStartTime: Date.now(),
+        showResult: false,
+        answersLog: newAnswersLog
+      });
     } else {
-      completeQuiz([...answersLog, answerLog]);
+      completeQuiz(newAnswersLog);
     }
   };
 
   const completeQuiz = (finalAnswersLog: AnswerLog[]) => {
     const correctAnswers = finalAnswersLog.filter(log => log.isCorrect).length;
-    const totalTime = Date.now() - startTime;
+    const totalTime = Date.now() - quizState.startTime;
     
-    setIsCompleted(true);
-    onComplete(correctAnswers, totalTime, finalAnswersLog);
+    localStorage.setItem(`quiz-answers-${exercise.id}`, JSON.stringify(finalAnswersLog));
     
-    toast({
-      title: "Quiz Concluído!",
-      description: `Você acertou ${correctAnswers} de ${exercise.questions.length} questões.`,
+    setQuizState({
+      ...quizState,
+      isCompleted: true,
+      answersLog: finalAnswersLog
     });
+    
+    onComplete(correctAnswers, totalTime, finalAnswersLog);
   };
 
   const handleShowResult = () => {
-    if (selectedAnswers[currentQuestionIndex] === undefined) {
+    if (quizState.selectedAnswers[quizState.currentQuestionIndex] === undefined) {
       toast({
         title: "Selecione uma resposta",
         description: "Por favor, selecione uma alternativa antes de continuar.",
@@ -109,19 +126,34 @@ export function QuizInterface({ exercise, onComplete, onCancel }: QuizInterfaceP
       });
       return;
     }
-    setShowResult(true);
+    setQuizState({
+      ...quizState,
+      showResult: true
+    });
   };
 
   const restartQuiz = () => {
-    setCurrentQuestionIndex(0);
-    setSelectedAnswers([]);
-    setShowResult(false);
-    setAnswersLog([]);
-    setIsCompleted(false);
-    setQuestionStartTime(Date.now());
+    setQuizState({
+      currentQuestionIndex: 0,
+      selectedAnswers: [],
+      showResult: false,
+      startTime: Date.now(),
+      questionStartTime: Date.now(),
+      answersLog: [],
+      isCompleted: false
+    });
   };
 
-  if (!currentQuestion) return null;
+  if (showReview) {
+    return (
+      <ReviewMistakes
+        exercise={exercise}
+        onClose={() => setShowReview(false)}
+      />
+    );
+  }
+
+  if (!currentQuestion && !quizState.isCompleted) return null;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -138,27 +170,31 @@ export function QuizInterface({ exercise, onComplete, onCancel }: QuizInterfaceP
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="outline">
-                {currentQuestionIndex + 1} / {exercise.questions.length}
-              </Badge>
-              {!isCompleted && (
-                <Button variant="outline" size="sm" onClick={onCancel}>
-                  Cancelar
-                </Button>
+              {!quizState.isCompleted && (
+                <>
+                  <Badge variant="outline">
+                    {quizState.currentQuestionIndex + 1} / {exercise.questions.length}
+                  </Badge>
+                  <Button variant="outline" size="sm" onClick={onCancel}>
+                    Cancelar
+                  </Button>
+                </>
               )}
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <Progress value={progress} className="mb-6" />
-        </CardContent>
+        {!quizState.isCompleted && (
+          <CardContent>
+            <Progress value={progress} className="mb-6" />
+          </CardContent>
+        )}
       </Card>
 
-      {!isCompleted ? (
+      {!quizState.isCompleted ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">
-              Questão {currentQuestionIndex + 1}
+              Questão {quizState.currentQuestionIndex + 1}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -169,26 +205,26 @@ export function QuizInterface({ exercise, onComplete, onCancel }: QuizInterfaceP
             <div className="space-y-3">
               {shuffledOptions.map((option, shuffledIndex) => {
                 const originalIndex = option.originalIndex;
-                const isSelected = selectedAnswers[currentQuestionIndex] === originalIndex;
+                const isSelected = quizState.selectedAnswers[quizState.currentQuestionIndex] === originalIndex;
                 const isCorrect = originalIndex === currentQuestion.correctAnswer;
-                const showCorrectAnswer = showResult && isCorrect;
-                const showWrongAnswer = showResult && isSelected && !isCorrect;
+                const showCorrectAnswer = quizState.showResult && isCorrect;
+                const showWrongAnswer = quizState.showResult && isSelected && !isCorrect;
 
                 return (
                   <button
                     key={shuffledIndex}
                     onClick={() => handleAnswerSelect(shuffledIndex)}
-                    disabled={showResult}
+                    disabled={quizState.showResult}
                     className={`
                       w-full p-4 text-left rounded-lg border transition-all
-                      ${isSelected && !showResult ? 'border-primary bg-primary/5' : 'border-border'}
-                      ${showCorrectAnswer ? 'border-green-500 bg-green-50' : ''}
-                      ${showWrongAnswer ? 'border-red-500 bg-red-50' : ''}
-                      ${!showResult ? 'hover:bg-muted/50' : ''}
+                      ${isSelected && !quizState.showResult ? 'border-primary bg-primary/5' : 'border-border'}
+                      ${showCorrectAnswer ? 'border-green-500 bg-green-50 dark:bg-green-900 dark:text-green-200' : ''}
+                      ${showWrongAnswer ? 'border-red-500 bg-red-50 dark:bg-red-900 dark:text-red-200' : ''}
+                      ${!quizState.showResult ? 'hover:bg-muted/50' : ''}
                     `}
                   >
                     <div className="flex items-center gap-3">
-                      <Badge variant={isSelected && !showResult ? "default" : "outline"}>
+                      <Badge variant={isSelected && !quizState.showResult ? "default" : "outline"}>
                         {String.fromCharCode(65 + shuffledIndex)}
                       </Badge>
                       <span className="flex-1">{option.text}</span>
@@ -200,14 +236,14 @@ export function QuizInterface({ exercise, onComplete, onCancel }: QuizInterfaceP
               })}
             </div>
 
-            {showResult && currentQuestion.explanation && (
-              <Card className="border-blue-200 bg-blue-50">
+            {quizState.showResult && currentQuestion.explanation && (
+              <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
                 <CardContent className="pt-4">
                   <div className="flex items-start gap-2">
-                    <div className="text-blue-600 mt-1">💡</div>
+                    <div className="text-blue-600 dark:text-blue-400 mt-1">💡</div>
                     <div>
-                      <h4 className="font-medium text-blue-900 mb-1">Explicação</h4>
-                      <p className="text-blue-800 text-sm">{currentQuestion.explanation}</p>
+                      <h4 className="font-medium text-blue-900 dark:text-blue-200 mb-1">Explicação</h4>
+                      <p className="text-blue-800 dark:text-blue-300 text-sm">{currentQuestion.explanation}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -217,17 +253,17 @@ export function QuizInterface({ exercise, onComplete, onCancel }: QuizInterfaceP
             <div className="flex justify-between">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Clock className="h-4 w-4" />
-                <span>Questão {currentQuestionIndex + 1} de {exercise.questions.length}</span>
+                <span>Questão {quizState.currentQuestionIndex + 1} de {exercise.questions.length}</span>
               </div>
               
               <div className="flex gap-2">
-                {!showResult ? (
+                {!quizState.showResult ? (
                   <Button onClick={handleShowResult}>
                     Ver Resultado
                   </Button>
                 ) : (
                   <Button onClick={handleNextQuestion}>
-                    {currentQuestionIndex < exercise.questions.length - 1 ? (
+                    {quizState.currentQuestionIndex < exercise.questions.length - 1 ? (
                       <>
                         Próxima <ArrowRight className="h-4 w-4 ml-2" />
                       </>
@@ -251,19 +287,19 @@ export function QuizInterface({ exercise, onComplete, onCancel }: QuizInterfaceP
             <div className="grid grid-cols-3 gap-4 max-w-md mx-auto">
               <div className="text-center">
                 <div className="text-2xl font-bold text-green-600">
-                  {answersLog.filter(log => log.isCorrect).length}
+                  {quizState.answersLog.filter(log => log.isCorrect).length}
                 </div>
                 <div className="text-sm text-muted-foreground">Corretas</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-red-600">
-                  {answersLog.filter(log => !log.isCorrect).length}
+                  {quizState.answersLog.filter(log => !log.isCorrect).length}
                 </div>
                 <div className="text-sm text-muted-foreground">Incorretas</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-blue-600">
-                  {Math.round((answersLog.filter(log => log.isCorrect).length / exercise.questions.length) * 100)}%
+                  {Math.round((quizState.answersLog.filter(log => log.isCorrect).length / exercise.questions.length) * 100)}%
                 </div>
                 <div className="text-sm text-muted-foreground">Acerto</div>
               </div>
@@ -274,6 +310,12 @@ export function QuizInterface({ exercise, onComplete, onCancel }: QuizInterfaceP
                 <RotateCcw className="h-4 w-4 mr-2" />
                 Refazer
               </Button>
+              {quizState.answersLog.some(log => !log.isCorrect) && (
+                <Button onClick={() => setShowReview(true)} variant="secondary">
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  Revisar Erros
+                </Button>
+              )}
               <Button onClick={onCancel}>
                 Voltar
               </Button>

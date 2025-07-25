@@ -19,6 +19,10 @@ export interface Exercise {
   nextReviewAt: Date;
   reviewCount: number;
   successRate: number;
+  // Spaced Repetition Data
+  interval: number;
+  repetitions: number;
+  easinessFactor: number;
 }
 
 export interface Question {
