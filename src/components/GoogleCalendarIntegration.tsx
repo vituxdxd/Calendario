@@ -44,6 +44,14 @@ interface SyncedEvent {
   nextReviewAt: string; // Para detectar mudanças na data
 }
 
+// Função auxiliar para definir horário padrão (12:00) para eventos
+const setDefaultTime = (dateString: string): string => {
+  const date = new Date(dateString);
+  // Define horário para 12:00 (meio-dia)
+  date.setHours(12, 0, 0, 0);
+  return date.toISOString();
+};
+
 export function GoogleCalendarIntegration({ exercises, onSyncUpdate, onSingleExerciseSync, onFunctionsReady }: GoogleCalendarIntegrationProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -340,22 +348,25 @@ export function GoogleCalendarIntegration({ exercises, onSyncUpdate, onSingleExe
               // Deletar evento antigo
               try {
                 await deleteCalendarEvent(existingSyncedEvent.googleEventId);
-                console.log(`  🗑️ Evento antigo deletado`);
+                console.log(`  Evento antigo deletado`);
               } catch (deleteError) {
-                console.warn(`  ⚠️ Erro ao deletar evento antigo (continuando):`, deleteError);
+                console.warn(`  Erro ao deletar evento antigo (continuando):`, deleteError);
               }
               
               // Criar novo evento
+              const startDateTime = setDefaultTime(currentNextReviewAt);
+              const endDateTime = setDefaultTime(new Date(new Date(exercise.nextReviewAt).getTime() + 60 * 60 * 1000).toISOString());
+              
               const event: CalendarEvent = {
                 id: `medstride_${exercise.id}`,
                 summary: `📚 Revisão: ${exercise.title}`,
                 description: `Exercício de ${exercise.subjectId}\n\nDificuldade: ${exercise.difficulty}\nQuestões: ${exercise.questions.length}\n\nCriado pelo Med Stride Calendar`,
                 start: {
-                  dateTime: currentNextReviewAt,
+                  dateTime: startDateTime,
                   timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                 },
                 end: {
-                  dateTime: new Date(new Date(exercise.nextReviewAt).getTime() + 60 * 60 * 1000).toISOString(),
+                  dateTime: endDateTime,
                   timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                 },
               };
@@ -380,16 +391,19 @@ export function GoogleCalendarIntegration({ exercises, onSyncUpdate, onSingleExe
             // Exercício ainda não foi sincronizado - criar novo
             console.log(`  🆕 Exercício não sincronizado, criando novo evento`);
             
+            const startDateTime = setDefaultTime(currentNextReviewAt);
+            const endDateTime = setDefaultTime(new Date(new Date(exercise.nextReviewAt).getTime() + 60 * 60 * 1000).toISOString());
+            
             const event: CalendarEvent = {
               id: `medstride_${exercise.id}`,
               summary: `📚 Revisão: ${exercise.title}`,
               description: `Exercício de ${exercise.subjectId}\n\nDificuldade: ${exercise.difficulty}\nQuestões: ${exercise.questions.length}\n\nCriado pelo Med Stride Calendar`,
               start: {
-                dateTime: currentNextReviewAt,
+                dateTime: startDateTime,
                 timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
               },
               end: {
-                dateTime: new Date(new Date(exercise.nextReviewAt).getTime() + 60 * 60 * 1000).toISOString(),
+                dateTime: endDateTime,
                 timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
               },
             };

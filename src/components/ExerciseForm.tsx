@@ -21,6 +21,7 @@ const exerciseSchema = z.object({
   subjectId: z.string().min(1, 'Disciplina é obrigatória'),
   difficulty: z.enum(['easy', 'medium', 'hard']),
   isSimulado: z.boolean().default(false),
+  isTBL: z.boolean().default(false),
 });
 
 interface ExerciseFormProps {
@@ -47,6 +48,7 @@ export function ExerciseForm({ onSave, onCancel }: ExerciseFormProps) {
       subjectId: '',
       difficulty: 'medium',
       isSimulado: false,
+      isTBL: false,
     },
   });
 
@@ -138,7 +140,11 @@ export function ExerciseForm({ onSave, onCancel }: ExerciseFormProps) {
       subjectId: values.subjectId,
       difficulty: values.difficulty,
       isSimulado: values.isSimulado,
-      questions: questionsWithIds
+      isTBL: values.isTBL,
+      questions: questionsWithIds,
+      interval: 1,
+      repetitions: 0,
+      easinessFactor: 2.5
     };
 
     onSave(exercise);
@@ -232,31 +238,54 @@ export function ExerciseForm({ onSave, onCancel }: ExerciseFormProps) {
                     </FormItem>
                   )}
                 />
+              </div>
 
-                <div className="flex items-center space-x-2">
-                  <FormField
-                    control={form.control}
-                    name="isSimulado"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">
-                            Questão de Simulado
-                          </FormLabel>
-                          <div className="text-sm text-muted-foreground">
-                            Marcar como questão especial de simulado
-                          </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="isSimulado"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">
+                          Questão de Simulado
+                        </FormLabel>
+                        <div className="text-sm text-muted-foreground">
+                          Marcar como questão especial de simulado
                         </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="isTBL"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">
+                          Questão de TBL
+                        </FormLabel>
+                        <div className="text-sm text-muted-foreground">
+                          Marcar como questão de Team-Based Learning
+                        </div>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
               </div>
             </form>
           </Form>

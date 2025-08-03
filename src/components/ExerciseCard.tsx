@@ -1,4 +1,4 @@
-import { format, isToday, isBefore, isAfter } from 'date-fns';
+import { format, isToday, isBefore, isAfter, isPast, isFuture } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Exercise } from '@/types/medical';
 import { GoogleCalendarFunctions } from './GoogleCalendarIntegration';
@@ -18,9 +18,13 @@ import {
   TrendingUp,
   AlertCircle,
   CheckCircle,
+  CheckCircle2,
   Star,
   Edit,
-  RotateCcw
+  RotateCcw,
+  Loader2,
+  CloudSync,
+  CloudOff
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -31,9 +35,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useState } from 'react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { MoreVertical, Play, BookOpen, Calendar as CalendarIcon, Trash2, Clock, AlertCircle, CheckCircle2, RotateCcw, Loader2, CloudSync, CloudOff } from 'lucide-react';
-import { format, isToday, isPast, isFuture } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 
 interface ExerciseCardProps {
   exercise: Exercise;

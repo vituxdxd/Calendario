@@ -13,6 +13,7 @@ export interface Exercise {
   description: string;
   difficulty: 'easy' | 'medium' | 'hard';
   isSimulado: boolean;
+  isTBL: boolean;
   questions: Question[];
   createdAt: Date;
   lastReviewedAt?: Date;
