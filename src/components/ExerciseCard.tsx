@@ -22,9 +22,7 @@ import {
   Star,
   Edit,
   RotateCcw,
-  Loader2,
-  CloudSync,
-  CloudOff
+  Loader2
 } from 'lucide-react';
 import {
   DropdownMenu,
