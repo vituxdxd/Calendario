@@ -17,9 +17,11 @@ import { ExerciseForm } from '@/components/ExerciseForm';
 import { QuizInterface } from '@/components/QuizInterface';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { SchedulingOptions } from '@/components/SchedulingOptions';
+import { BackupManager } from '@/components/BackupManager';
+import { QuestionsBySubject } from '@/components/QuestionsBySubject';
 import medicalHeroImage from '@/assets/medical-hero.jpg';
 
-type ViewState = 'dashboard' | 'new-exercise' | 'quiz' | 'review' | 'mistakes';
+type ViewState = 'dashboard' | 'new-exercise' | 'quiz' | 'review' | 'mistakes' | 'questions-by-subject';
 
 const Index = () => {
   const [rawExercises, setRawExercises] = useLocalStorage<Exercise[]>('medical-exercises', []);
@@ -27,6 +29,7 @@ const Index = () => {
   const [studySessions, setStudySessions] = useLocalStorage<StudySession[]>('study-sessions', []);
   const [currentView, setCurrentView] = useState<ViewState>('dashboard');
   const [currentExercise, setCurrentExercise] = useState<Exercise | null>(null);
+  const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [reviewExercise, setReviewExercise] = useState<Exercise | null>(null);
   const [isScheduling, setIsScheduling] = useState(false);
@@ -58,27 +61,42 @@ const Index = () => {
     setRawExercises(updatedExercises);
   };
 
-  const handleSaveExercise = (exerciseData: Omit<Exercise, 'id' | 'createdAt' | 'lastReviewedAt' | 'nextReviewAt' | 'reviewCount' | 'successRate' | 'interval' | 'repetitions' | 'easinessFactor'>) => {
-    const initialReviewData = getInitialReviewData();
-    const newExercise: Exercise = {
-      ...exerciseData,
-      id: `ex_${Date.now()}`,
-      createdAt: new Date(),
-      nextReviewAt: new Date(),
-      reviewCount: 0,
-      successRate: 0,
-      interval: initialReviewData.interval,
-      repetitions: initialReviewData.repetitions,
-      easinessFactor: initialReviewData.easinessFactor,
-    };
+  const handleSaveExercise = (exercise: Exercise) => {
+    if (editingExercise) {
+      // Editando exercício existente
+      const updatedExercises = exercises.map(ex => 
+        ex.id === editingExercise.id ? exercise : ex
+      );
+      updateExercises(updatedExercises);
+      setEditingExercise(null);
+      
+      toast({
+        title: "Exercício atualizado!",
+        description: `${exercise.title} foi atualizado com sucesso.`,
+      });
+    } else {
+      // Criando novo exercício
+      const newExercise: Exercise = {
+        ...exercise,
+        id: `ex_${Date.now()}`,
+        createdAt: new Date(),
+        nextReviewAt: new Date(),
+        reviewCount: 0,
+        successRate: 0,
+        interval: exercise.interval || 1,
+        repetitions: exercise.repetitions || 0,
+        easinessFactor: exercise.easinessFactor || 2.5,
+      };
 
-    updateExercises([...exercises, newExercise]);
-    setCurrentView('dashboard');
+      updateExercises([...exercises, newExercise]);
+      
+      toast({
+        title: "Exercício criado!",
+        description: `${newExercise.title} foi adicionado com sucesso.`,
+      });
+    }
     
-    toast({
-      title: "Exercício criado!",
-      description: `${newExercise.title} foi adicionado com sucesso.`,
-    });
+    setCurrentView('dashboard');
   };
 
   const handleStartExercise = (exercise: Exercise) => {
@@ -86,9 +104,15 @@ const Index = () => {
     setCurrentView('quiz');
   };
 
+  const handleEditExercise = (exercise: Exercise) => {
+    setEditingExercise(exercise);
+    setCurrentView('new-exercise');
+  };
+
   const handleCompleteQuiz = (score: number, timeSpent: number, answersLog: AnswerLog[]) => {
     if (!currentExercise) return;
 
+    // Criar sessão de estudo
     const session: StudySession = {
       id: `session_${Date.now()}`,
       exerciseId: currentExercise.id,
@@ -99,6 +123,28 @@ const Index = () => {
     };
 
     setStudySessions([...studySessions, session]);
+
+    // Atualizar métricas do exercício imediatamente
+    const newSuccessRate = currentExercise.reviewCount === 0 
+      ? (score / currentExercise.questions.length) * 100
+      : ((currentExercise.successRate * currentExercise.reviewCount) + ((score / currentExercise.questions.length) * 100)) / (currentExercise.reviewCount + 1);
+
+    const updatedExercise: Exercise = {
+      ...currentExercise,
+      reviewCount: currentExercise.reviewCount + 1,
+      successRate: newSuccessRate,
+      lastReviewedAt: new Date(),
+    };
+
+    // Atualizar o exercício na lista
+    const updatedExercises = exercises.map(ex => 
+      ex.id === currentExercise.id ? updatedExercise : ex
+    );
+    updateExercises(updatedExercises);
+
+    // Atualizar o exercício atual para que a tela de agendamento mostre dados corretos
+    setCurrentExercise(updatedExercise);
+
     setIsScheduling(true);
   };
 
@@ -254,11 +300,8 @@ const Index = () => {
       const nextReview = calculateNextReview(quality, previousData);
 
       updatedExercise = {
-        ...currentExercise,
-        lastReviewedAt: new Date(),
+        ...exerciseToUpdate, // Usar exerciseToUpdate que já tem as métricas atualizadas
         nextReviewAt: nextReview.nextReviewDate,
-        reviewCount: currentExercise.reviewCount + 1,
-        successRate: ((currentExercise.successRate * currentExercise.reviewCount) + (score / currentExercise.questions.length * 100)) / (currentExercise.reviewCount + 1),
         interval: nextReview.interval,
         repetitions: nextReview.repetitions,
         easinessFactor: nextReview.easinessFactor,
@@ -279,6 +322,26 @@ const Index = () => {
     });
   };
 
+  const handleImportBackup = (data: { exercises: Exercise[]; studySessions: StudySession[]; quizAnswers: Record<string, any[]> }) => {
+    // Atualizar exercícios
+    updateExercises(data.exercises);
+    
+    // Atualizar sessões de estudo
+    setStudySessions(data.studySessions);
+    
+    // Os quiz answers já foram restaurados no localStorage pelo BackupManager
+    
+    toast({
+      title: "Backup restaurado com sucesso!",
+      description: "Todos os dados foram importados. A página será recarregada para aplicar as mudanças.",
+    });
+
+    // Recarregar a página para garantir que todos os dados sejam atualizados
+    setTimeout(() => {
+      window.location.reload();
+    }, 2000);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
@@ -296,6 +359,11 @@ const Index = () => {
             
             {currentView === 'dashboard' && (
               <div className="flex items-center gap-2">
+                <BackupManager 
+                  exercises={exercises}
+                  studySessions={studySessions}
+                  onImportData={handleImportBackup}
+                />
                 <Button onClick={() => setCurrentView('mistakes')} variant="outline">
                   Central de Erros
                 </Button>
@@ -389,10 +457,12 @@ const Index = () => {
                 exercises={exercises || []}
                 onExerciseStart={handleStartExercise}
                 onExerciseDelete={handleDeleteExercise}
+                onExerciseEdit={handleEditExercise}
                 onDateSelect={handleDateSelect}
                 selectedDate={selectedDate}
                 onReview={handleReviewExercise}
                 onChangeDate={handleChangeDate}
+                onViewBySubject={() => setCurrentView('questions-by-subject')}
               />
             )}
           </>
@@ -400,8 +470,12 @@ const Index = () => {
 
         {currentView === 'new-exercise' && (
           <ExerciseForm
+            exercise={editingExercise}
             onSave={handleSaveExercise}
-            onCancel={() => setCurrentView('dashboard')}
+            onCancel={() => {
+              setEditingExercise(null);
+              setCurrentView('dashboard');
+            }}
           />
         )}
 
@@ -418,6 +492,13 @@ const Index = () => {
             exercises={exercises} 
             studySessions={studySessions}
             onClearMistakes={handleClearMistakes}
+          />
+        )}
+
+        {currentView === 'questions-by-subject' && (
+          <QuestionsBySubject
+            exercises={exercises}
+            onBack={() => setCurrentView('dashboard')}
           />
         )}
 

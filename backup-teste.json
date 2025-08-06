@@ -1,0 +1,63 @@
+{
+  "exercises": [
+    {
+      "title": "Teste de Anatomia - Sistema Respiratório",
+      "description": "Questões básicas sobre o sistema respiratório",
+      "subjectId": "anatomia",
+      "difficulty": "medium",
+      "isSimulado": false,
+      "isTBL": false,
+      "questions": [
+        {
+          "question": "Qual é o órgão principal do sistema respiratório?",
+          "options": [
+            "Coração",
+            "Pulmão",
+            "Fígado",
+            "Estômago"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Os pulmões são os órgãos principais do sistema respiratório, responsáveis pelas trocas gasosas.",
+          "id": "q_test_001"
+        }
+      ],
+      "id": "ex_test_001",
+      "createdAt": "2025-01-05T10:00:00.000Z",
+      "nextReviewAt": "2025-01-06T09:00:00.000Z",
+      "reviewCount": 0,
+      "successRate": 0,
+      "interval": 1,
+      "repetitions": 0,
+      "easinessFactor": 2.5
+    }
+  ],
+  "studySessions": [
+    {
+      "id": "session_test_001",
+      "exerciseId": "ex_test_001",
+      "completedAt": "2025-01-05T10:30:00.000Z",
+      "score": 1,
+      "timeSpent": 15000,
+      "answersLog": [
+        {
+          "questionId": "q_test_001",
+          "selectedAnswer": 1,
+          "isCorrect": true,
+          "timeSpent": 15000
+        }
+      ]
+    }
+  ],
+  "quizAnswers": {
+    "quiz-answers-ex_test_001": [
+      {
+        "questionId": "q_test_001",
+        "selectedAnswer": 1,
+        "isCorrect": true,
+        "timeSpent": 15000
+      }
+    ]
+  },
+  "createdAt": "2025-01-05T10:00:00.000Z",
+  "version": "1.0.0"
+}

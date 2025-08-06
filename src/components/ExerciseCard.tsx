@@ -40,12 +40,13 @@ interface ExerciseCardProps {
   exercise: Exercise;
   onStart: (exercise: Exercise) => void;
   onDelete: (exercise: Exercise) => void;
+  onEdit?: (exercise: Exercise) => void;
   onReview?: (exercise: Exercise) => void;
   onChangeDate: (exercise: Exercise) => void;
   googleCalendarFunctions?: GoogleCalendarFunctions | null;
 }
 
-export function ExerciseCard({ exercise, onStart, onDelete, onReview, onChangeDate, googleCalendarFunctions }: ExerciseCardProps) {
+export function ExerciseCard({ exercise, onStart, onDelete, onEdit, onReview, onChangeDate, googleCalendarFunctions }: ExerciseCardProps) {
   const [isGoogleSyncing, setIsGoogleSyncing] = useState(false);
   const subject = getSubjectById(exercise.subjectId);
   const nextReviewDate = new Date(exercise.nextReviewAt);
@@ -169,10 +170,19 @@ export function ExerciseCard({ exercise, onStart, onDelete, onReview, onChangeDa
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
+              {onEdit && (
+                <>
+                  <DropdownMenuItem onClick={() => onEdit(exercise)} className="text-green-600">
+                    <Edit className="mr-2 h-4 w-4" />
+                    Editar Exercício
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               {onReview && exercise.reviewCount > 0 && (
                 <>
                   <DropdownMenuItem onClick={() => onReview(exercise)} className="text-blue-600">
-                    <Edit className="mr-2 h-4 w-4" />
+                    <RotateCcw className="mr-2 h-4 w-4" />
                     Revisar Erros
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />

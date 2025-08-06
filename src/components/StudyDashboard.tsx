@@ -15,20 +15,24 @@ interface StudyDashboardProps {
   exercises: Exercise[];
   onExerciseStart: (exercise: Exercise) => void;
   onExerciseDelete: (exercise: Exercise) => void;
+  onExerciseEdit?: (exercise: Exercise) => void;
   onDateSelect: (date: Date) => void;
   selectedDate?: Date;
   onReview: (exercise: Exercise) => void;
   onChangeDate: (exercise: Exercise) => void;
+  onViewBySubject?: () => void;
 }
 
 export function StudyDashboard({ 
   exercises, 
   onExerciseStart, 
   onExerciseDelete, 
+  onExerciseEdit,
   onDateSelect, 
   selectedDate, 
   onReview, 
-  onChangeDate 
+  onChangeDate,
+  onViewBySubject 
 }: StudyDashboardProps) {
   const [activeTab, setActiveTab] = useState('overview');
   const [googleCalendarFunctions, setGoogleCalendarFunctions] = useState<GoogleCalendarFunctions | null>(null);
@@ -46,8 +50,11 @@ export function StudyDashboard({
       isToday(new Date(ex.nextReviewAt)) || isBefore(new Date(ex.nextReviewAt), today)
     ).length;
     const completed = safeExercises.filter(ex => ex.reviewCount > 0).length;
-    const avgSuccessRate = safeExercises.length > 0 
-      ? Math.round(safeExercises.reduce((sum, ex) => sum + ex.successRate, 0) / safeExercises.length)
+    
+    // Calcular média apenas dos exercícios que foram completados
+    const completedExercises = safeExercises.filter(ex => ex.reviewCount > 0);
+    const avgSuccessRate = completedExercises.length > 0 
+      ? Math.round(completedExercises.reduce((sum, ex) => sum + ex.successRate, 0) / completedExercises.length)
       : 0;
 
     return { totalExercises, dueToday, completed, avgSuccessRate };
@@ -59,7 +66,9 @@ export function StudyDashboard({
     
     return {
       overdue: safeExercises.filter(ex => isBefore(new Date(ex.nextReviewAt), today)) || [],
-      dueToday: safeExercises.filter(ex => isToday(new Date(ex.nextReviewAt))) || [],
+      dueToday: safeExercises.filter(ex => 
+        isToday(new Date(ex.nextReviewAt)) || isBefore(new Date(ex.nextReviewAt), today)
+      ) || [],
       upcoming: safeExercises.filter(ex => isAfter(new Date(ex.nextReviewAt), today)) || [],
       all: safeExercises || []
     };
@@ -119,7 +128,7 @@ export function StudyDashboard({
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Pendentes Hoje</p>
+                <p className="text-sm font-medium text-muted-foreground">Para Revisar</p>
                 <p className="text-2xl font-bold text-orange-600">{metrics.dueToday}</p>
               </div>
               <Target className="h-6 w-6 text-orange-500" />
@@ -159,10 +168,23 @@ export function StudyDashboard({
           <Card>
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5 text-primary" />
-                  Seus Exercícios
-                </CardTitle>
+                <div className="flex items-center gap-3">
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5 text-primary" />
+                    Seus Exercícios
+                  </CardTitle>
+                  {onViewBySubject && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={onViewBySubject}
+                      className="text-xs"
+                    >
+                      <BookOpen className="h-3 w-3 mr-1" />
+                      Ver por Disciplina
+                    </Button>
+                  )}
+                </div>
                 <Badge variant="secondary" className="px-3 py-1">
                   {filteredExercises.length} exercícios
                 </Badge>
@@ -170,15 +192,12 @@ export function StudyDashboard({
             </CardHeader>
             <CardContent>
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-4 mb-6">
+                <TabsList className="grid w-full grid-cols-3 mb-6">
                   <TabsTrigger value="overview">
                     Todos ({categorizedExercises.all.length})
                   </TabsTrigger>
-                  <TabsTrigger value="overdue">
-                    Atrasados ({categorizedExercises.overdue.length})
-                  </TabsTrigger>
                   <TabsTrigger value="today">
-                    Hoje ({categorizedExercises.dueToday.length})
+                    Para Revisar ({categorizedExercises.dueToday.length})
                   </TabsTrigger>
                   <TabsTrigger value="upcoming">
                     Próximos ({categorizedExercises.upcoming.length})
@@ -195,6 +214,7 @@ export function StudyDashboard({
                             exercise={exercise}
                             onStart={onExerciseStart}
                             onDelete={onExerciseDelete}
+                            onEdit={onExerciseEdit}
                             onReview={onReview}
                             onChangeDate={onChangeDate}
                             googleCalendarFunctions={googleCalendarFunctions}
@@ -217,6 +237,7 @@ export function StudyDashboard({
                           exercise={exercise}
                           onStart={onExerciseStart}
                           onDelete={onExerciseDelete}
+                          onEdit={onExerciseEdit}
                           onReview={onReview}
                           onChangeDate={onChangeDate}
                           googleCalendarFunctions={googleCalendarFunctions}
@@ -226,7 +247,7 @@ export function StudyDashboard({
                   )}
                 </TabsContent>
 
-                {['overdue', 'today', 'upcoming'].map(category => (
+                {['today', 'upcoming'].map(category => (
                   <TabsContent key={category} value={category} className="space-y-4">
                     {(categorizedExercises[category as keyof typeof categorizedExercises] || []).length > 0 ? (
                       <div className="space-y-4">
@@ -236,6 +257,7 @@ export function StudyDashboard({
                             exercise={exercise}
                             onStart={onExerciseStart}
                             onDelete={onExerciseDelete}
+                            onEdit={onExerciseEdit}
                             onReview={onReview}
                             onChangeDate={onChangeDate}
                             googleCalendarFunctions={googleCalendarFunctions}
@@ -246,8 +268,7 @@ export function StudyDashboard({
                       <div className="text-center py-12">
                         <Star className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                         <p className="text-lg font-medium text-muted-foreground">
-                          {category === 'overdue' && 'Nenhum exercício atrasado!'}
-                          {category === 'today' && 'Nenhum exercício para hoje!'}
+                          {category === 'today' && 'Nenhum exercício para revisar!'}
                           {category === 'upcoming' && 'Nenhum exercício próximo!'}
                         </p>
                       </div>

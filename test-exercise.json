@@ -1,0 +1,24 @@
+[
+  {
+    "question": "TESTE: Quantos corações tem o ser humano?",
+    "options": [
+      "Um",
+      "Dois", 
+      "Três",
+      "Quatro"
+    ],
+    "correctAnswer": 0,
+    "explanation": "O ser humano tem apenas um coração."
+  },
+  {
+    "question": "TESTE: Qual é a cor do sangue?",
+    "options": [
+      "Azul",
+      "Verde", 
+      "Vermelho",
+      "Amarelo"
+    ],
+    "correctAnswer": 2,
+    "explanation": "O sangue é vermelho devido à hemoglobina."
+  }
+]

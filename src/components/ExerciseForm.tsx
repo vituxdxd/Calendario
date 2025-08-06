@@ -10,7 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Trash2, Upload, FileText } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Plus, Trash2, Upload, FileText, Clipboard, Code } from 'lucide-react';
 import { medicalSubjects } from '@/utils/subjects';
 import { Exercise, Question } from '@/types/medical';
 import { useToast } from '@/hooks/use-toast';
@@ -25,7 +27,8 @@ const exerciseSchema = z.object({
 });
 
 interface ExerciseFormProps {
-  onSave: (exercise: Omit<Exercise, 'id' | 'createdAt' | 'lastReviewedAt' | 'nextReviewAt' | 'reviewCount' | 'successRate'>) => void;
+  exercise?: Exercise; // Para edição
+  onSave: (exercise: Omit<Exercise, 'id' | 'createdAt' | 'lastReviewedAt' | 'nextReviewAt' | 'reviewCount' | 'successRate' | 'interval' | 'repetitions' | 'easinessFactor'>) => void;
   onCancel: () => void;
 }
 
@@ -36,18 +39,22 @@ interface ImportedQuestion {
   explanation?: string;
 }
 
-export function ExerciseForm({ onSave, onCancel }: ExerciseFormProps) {
-  const [questions, setQuestions] = useState<Omit<Question, 'id'>[]>([]);
+export function ExerciseForm({ exercise, onSave, onCancel }: ExerciseFormProps) {
+  const [questions, setQuestions] = useState<Omit<Question, 'id'>[]>(
+    exercise?.questions || []
+  );
+  const [jsonInput, setJsonInput] = useState('');
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof exerciseSchema>>({
     resolver: zodResolver(exerciseSchema),
     defaultValues: {
-      title: '',
-      description: '',
-      subjectId: '',
-      difficulty: 'medium',
-      isSimulado: false,
+      title: exercise?.title || '',
+      description: exercise?.description || '',
+      subjectId: exercise?.subjectId || '',
+      difficulty: exercise?.difficulty || 'medium',
+      isSimulado: exercise?.isSimulado || false,
       isTBL: false,
     },
   });
@@ -60,38 +67,68 @@ export function ExerciseForm({ onSave, onCancel }: ExerciseFormProps) {
     reader.onload = (e) => {
       try {
         const content = e.target?.result as string;
-        const imported = JSON.parse(content) as ImportedQuestion[];
-        
-        if (!Array.isArray(imported)) {
-          throw new Error('O arquivo deve conter um array de questões');
-        }
-
-        const validatedQuestions = imported.map((q, index) => {
-          if (!q.question || !Array.isArray(q.options) || q.options.length !== 4 || typeof q.correctAnswer !== 'number') {
-            throw new Error(`Questão ${index + 1} tem formato inválido`);
-          }
-          return {
-            question: q.question,
-            options: q.options,
-            correctAnswer: q.correctAnswer,
-            explanation: q.explanation || ''
-          };
-        });
-
-        setQuestions(validatedQuestions);
-        toast({
-          title: "Questões importadas!",
-          description: `${validatedQuestions.length} questões foram importadas com sucesso.`,
-        });
+        processJsonImport(content);
       } catch (error) {
         toast({
           title: "Erro na importação",
-          description: error instanceof Error ? error.message : "Formato de arquivo inválido",
+          description: error instanceof Error ? error.message : "Erro ao ler o arquivo",
           variant: "destructive"
         });
       }
     };
     reader.readAsText(file);
+  };
+
+  const handleJsonPaste = () => {
+    if (!jsonInput.trim()) {
+      toast({
+        title: "Erro",
+        description: "Cole o código JSON no campo de texto",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      processJsonImport(jsonInput);
+      setJsonInput('');
+      setIsImportDialogOpen(false);
+    } catch (error) {
+      toast({
+        title: "Erro na importação",
+        description: error instanceof Error ? error.message : "Formato JSON inválido",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const processJsonImport = (content: string) => {
+    const imported = JSON.parse(content) as ImportedQuestion[];
+    
+    if (!Array.isArray(imported)) {
+      throw new Error('O conteúdo deve ser um array de questões');
+    }
+
+    const validatedQuestions = imported.map((q, index) => {
+      if (!q.question || !Array.isArray(q.options) || q.options.length !== 4 || typeof q.correctAnswer !== 'number') {
+        throw new Error(`Questão ${index + 1} tem formato inválido`);
+      }
+      if (q.correctAnswer < 0 || q.correctAnswer > 3) {
+        throw new Error(`Questão ${index + 1}: resposta correta deve ser 0, 1, 2 ou 3`);
+      }
+      return {
+        question: q.question,
+        options: q.options,
+        correctAnswer: q.correctAnswer,
+        explanation: q.explanation || ''
+      };
+    });
+
+    setQuestions(validatedQuestions);
+    toast({
+      title: "Questões importadas!",
+      description: `${validatedQuestions.length} questões foram importadas com sucesso.`,
+    });
   };
 
   const addQuestion = () => {
@@ -119,42 +156,50 @@ export function ExerciseForm({ onSave, onCancel }: ExerciseFormProps) {
     setQuestions(updatedQuestions);
   };
 
-  const onSubmit = (values: z.infer<typeof exerciseSchema>) => {
+  const onSubmit = (data: z.infer<typeof exerciseSchema>) => {
     if (questions.length === 0) {
       toast({
         title: "Erro",
-        description: "Adicione pelo menos uma questão",
-        variant: "destructive"
+        description: "Adicione pelo menos uma pergunta ao exercício.",
+        variant: "destructive",
       });
       return;
     }
 
-    const questionsWithIds = questions.map((q, index) => ({
-      ...q,
-      id: `q_${Date.now()}_${index}`
-    }));
-
-    const exercise: Omit<Exercise, 'id' | 'createdAt' | 'lastReviewedAt' | 'nextReviewAt' | 'reviewCount' | 'successRate'> = {
-      title: values.title,
-      description: values.description || '',
-      subjectId: values.subjectId,
-      difficulty: values.difficulty,
-      isSimulado: values.isSimulado,
-      isTBL: values.isTBL,
-      questions: questionsWithIds,
-      interval: 1,
-      repetitions: 0,
-      easinessFactor: 2.5
+    const newExercise: Exercise = {
+      id: exercise?.id || crypto.randomUUID(),
+      subjectId: data.subjectId,
+      title: data.title,
+      description: data.description,
+      difficulty: data.difficulty,
+      isSimulado: data.isSimulado,
+      isTBL: exercise?.isTBL || false,
+      questions: questions.map((q, index) => ({
+        ...q,
+        id: crypto.randomUUID(),
+      })),
+      createdAt: exercise?.createdAt || new Date(),
+      lastReviewedAt: exercise?.lastReviewedAt,
+      nextReviewAt: exercise?.nextReviewAt || new Date(),
+      reviewCount: exercise?.reviewCount || 0,
+      successRate: exercise?.successRate || 0,
+      interval: exercise?.interval || 1,
+      repetitions: exercise?.repetitions || 0,
+      easinessFactor: exercise?.easinessFactor || 2.5,
     };
 
-    onSave(exercise);
+    onSave(newExercise);
+    toast({
+      title: "Sucesso",
+      description: exercise ? "Exercício atualizado com sucesso!" : "Exercício criado com sucesso!",
+    });
   };
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Novo Exercício</CardTitle>
+          <CardTitle>{exercise ? 'Editar Exercício' : 'Novo Exercício'}</CardTitle>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -297,36 +342,124 @@ export function ExerciseForm({ onSave, onCancel }: ExerciseFormProps) {
           <div className="flex items-center justify-between">
             <CardTitle>Questões de Múltipla Escolha</CardTitle>
             <div className="flex gap-2">
-              <div className="relative">
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={handleFileImport}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
-                <Button variant="outline" size="sm">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Importar JSON
-                </Button>
-              </div>
+              <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Code className="h-4 w-4 mr-2" />
+                    Importar Questões
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Importar Questões</DialogTitle>
+                    <DialogDescription>
+                      Escolha como deseja importar suas questões: através de arquivo JSON ou colando o código diretamente.
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <Tabs defaultValue="paste" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="paste" className="flex items-center gap-2">
+                        <Clipboard className="h-4 w-4" />
+                        Colar JSON
+                      </TabsTrigger>
+                      <TabsTrigger value="file" className="flex items-center gap-2">
+                        <Upload className="h-4 w-4" />
+                        Arquivo JSON
+                      </TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="paste" className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Cole seu código JSON aqui:</label>
+                        <Textarea
+                          placeholder="Cole o código JSON das questões aqui..."
+                          value={jsonInput}
+                          onChange={(e) => setJsonInput(e.target.value)}
+                          className="min-h-[200px] font-mono text-sm"
+                        />
+                        <div className="flex gap-2">
+                          <Button 
+                            onClick={handleJsonPaste}
+                            disabled={!jsonInput.trim()}
+                            className="flex-1"
+                          >
+                            <Clipboard className="h-4 w-4 mr-2" />
+                            Importar do Texto
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            onClick={() => setJsonInput('')}
+                            disabled={!jsonInput.trim()}
+                          >
+                            Limpar
+                          </Button>
+                        </div>
+                      </div>
+                    </TabsContent>
+                    
+                    <TabsContent value="file" className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-foreground">Selecione um arquivo JSON:</label>
+                        <div className="border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 rounded-lg p-6 text-center bg-muted/20 transition-colors">
+                          <div className="relative">
+                            <input
+                              type="file"
+                              accept=".json"
+                              onChange={handleFileImport}
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            />
+                            <div className="flex flex-col items-center gap-2">
+                              <Upload className="h-8 w-8 text-muted-foreground" />
+                              <p className="text-sm text-foreground">
+                                Clique aqui ou arraste um arquivo JSON
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Apenas arquivos .json são aceitos
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+                  
+                  <div className="bg-muted/50 p-4 rounded-lg border">
+                    <h4 className="text-sm font-medium mb-2 text-foreground">Formato esperado:</h4>
+                    <pre className="text-xs bg-background p-3 rounded border overflow-x-auto text-foreground">
+{`[
+  {
+    "question": "Qual é a função do coração?",
+    "options": [
+      "Bombear sangue",
+      "Filtrar toxinas", 
+      "Produzir hormônios",
+      "Armazenar energia"
+    ],
+    "correctAnswer": 0,
+    "explanation": "O coração é responsável por bombear sangue pelo corpo."
+  },
+  {
+    "question": "Outra pergunta...",
+    "options": ["A", "B", "C", "D"],
+    "correctAnswer": 1,
+    "explanation": "Explicação opcional"
+  }
+]`}
+                    </pre>
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      <p>• <code className="bg-muted px-1 rounded text-foreground">correctAnswer</code>: índice da resposta correta (0, 1, 2 ou 3)</p>
+                      <p>• <code className="bg-muted px-1 rounded text-foreground">explanation</code>: campo opcional para explicação</p>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              
               <Button onClick={addQuestion} size="sm">
                 <Plus className="h-4 w-4 mr-2" />
                 Adicionar Questão
               </Button>
             </div>
-          </div>
-          <div className="text-sm text-muted-foreground">
-            <p>Importe um arquivo JSON com o formato:</p>
-            <pre className="mt-2 p-2 bg-muted rounded text-xs">
-{`[
-  {
-    "question": "Sua pergunta aqui?",
-    "options": ["Opção A", "Opção B", "Opção C", "Opção D"],
-    "correctAnswer": 0,
-    "explanation": "Explicação opcional"
-  }
-]`}
-            </pre>
           </div>
         </CardHeader>
         <CardContent>
