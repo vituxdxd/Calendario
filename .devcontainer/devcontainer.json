@@ -1,0 +1,23 @@
+{
+  "name": "Node.js & TypeScript",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:18",
+
+  "forwardPorts": [5173],
+
+  "postCreateCommand": "npm cache clean --force && npm install",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint"
+      ],
+      "settings": {
+        "npm.packageManager": "npm"
+      }
+    }
+  },
+
+  "remoteEnv": {
+    "npm_config_package_lock": "true"
+  }
+}
