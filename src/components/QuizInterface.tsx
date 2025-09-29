@@ -149,6 +149,7 @@ export function QuizInterface({ exercise, onComplete, onCancel }: QuizInterfaceP
       <ReviewMistakes
         exercise={exercise}
         onClose={() => setShowReview(false)}
+        onSaveReview={() => {}}
       />
     );
   }

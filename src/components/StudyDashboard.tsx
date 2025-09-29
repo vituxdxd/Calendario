@@ -21,6 +21,7 @@ interface StudyDashboardProps {
   onReview: (exercise: Exercise) => void;
   onChangeDate: (exercise: Exercise) => void;
   onViewBySubject?: () => void;
+  onManageSubjects?: () => void;
 }
 
 export function StudyDashboard({ 
@@ -32,7 +33,8 @@ export function StudyDashboard({
   selectedDate, 
   onReview, 
   onChangeDate,
-  onViewBySubject 
+  onViewBySubject,
+  onManageSubjects 
 }: StudyDashboardProps) {
   const [activeTab, setActiveTab] = useState('overview');
   const [googleCalendarFunctions, setGoogleCalendarFunctions] = useState<GoogleCalendarFunctions | null>(null);
@@ -173,17 +175,30 @@ export function StudyDashboard({
                     <BarChart3 className="h-5 w-5 text-primary" />
                     Seus Exercícios
                   </CardTitle>
-                  {onViewBySubject && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={onViewBySubject}
-                      className="text-xs"
-                    >
-                      <BookOpen className="h-3 w-3 mr-1" />
-                      Ver por Disciplina
-                    </Button>
-                  )}
+                  <div className="flex gap-2">
+                    {onViewBySubject && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={onViewBySubject}
+                        className="text-xs"
+                      >
+                        <BookOpen className="h-3 w-3 mr-1" />
+                        Ver por Disciplina
+                      </Button>
+                    )}
+                    {onManageSubjects && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={onManageSubjects}
+                        className="text-xs"
+                      >
+                        <Target className="h-3 w-3 mr-1" />
+                        Gerenciar Disciplinas
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 <Badge variant="secondary" className="px-3 py-1">
                   {filteredExercises.length} exercícios
@@ -247,34 +262,37 @@ export function StudyDashboard({
                   )}
                 </TabsContent>
 
-                {['today', 'upcoming'].map(category => (
-                  <TabsContent key={category} value={category} className="space-y-4">
-                    {(categorizedExercises[category as keyof typeof categorizedExercises] || []).length > 0 ? (
-                      <div className="space-y-4">
-                        {(categorizedExercises[category as keyof typeof categorizedExercises] || []).map((exercise) => (
-                          <ExerciseCard
-                            key={exercise.id}
-                            exercise={exercise}
-                            onStart={onExerciseStart}
-                            onDelete={onExerciseDelete}
-                            onEdit={onExerciseEdit}
-                            onReview={onReview}
-                            onChangeDate={onChangeDate}
-                            googleCalendarFunctions={googleCalendarFunctions}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-12">
-                        <Star className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                        <p className="text-lg font-medium text-muted-foreground">
-                          {category === 'today' && 'Nenhum exercício para revisar!'}
-                          {category === 'upcoming' && 'Nenhum exercício próximo!'}
-                        </p>
-                      </div>
-                    )}
-                  </TabsContent>
-                ))}
+                {['today', 'upcoming'].map(category => {
+                  const exerciseList = category === 'today' ? categorizedExercises.dueToday : categorizedExercises.upcoming;
+                  return (
+                    <TabsContent key={category} value={category} className="space-y-4">
+                      {exerciseList.length > 0 ? (
+                        <div className="space-y-4">
+                          {exerciseList.map((exercise) => (
+                            <ExerciseCard
+                              key={exercise.id}
+                              exercise={exercise}
+                              onStart={onExerciseStart}
+                              onDelete={onExerciseDelete}
+                              onEdit={onExerciseEdit}
+                              onReview={onReview}
+                              onChangeDate={onChangeDate}
+                              googleCalendarFunctions={googleCalendarFunctions}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-12">
+                          <Star className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                          <p className="text-lg font-medium text-muted-foreground">
+                            {category === 'today' && 'Nenhum exercício para revisar!'}
+                            {category === 'upcoming' && 'Nenhum exercício próximo!'}
+                          </p>
+                        </div>
+                      )}
+                    </TabsContent>
+                  );
+                })}
               </Tabs>
             </CardContent>
           </Card>

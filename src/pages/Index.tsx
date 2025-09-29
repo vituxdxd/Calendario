@@ -7,7 +7,7 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Exercise, StudySession } from '@/types/medical';
 import { useToast } from '@/hooks/use-toast';
 import { getInitialReviewData, calculateQualityFromScore, calculateNextReview } from '@/utils/spacedRepetition';
-import { AnswerLog } from '@/types/medical';
+import { AnswerLog, Subject } from '@/types/medical';
 import { GraduationCap, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -19,9 +19,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { SchedulingOptions } from '@/components/SchedulingOptions';
 import { BackupManager } from '@/components/BackupManager';
 import { QuestionsBySubject } from '@/components/QuestionsBySubject';
+import { SubjectManager } from '@/components/SubjectManager';
+import { saveMedicalSubjects } from '@/utils/subjects';
 import medicalHeroImage from '@/assets/medical-hero.jpg';
 
-type ViewState = 'dashboard' | 'new-exercise' | 'quiz' | 'review' | 'mistakes' | 'questions-by-subject';
+type ViewState = 'dashboard' | 'new-exercise' | 'quiz' | 'review' | 'mistakes' | 'questions-by-subject' | 'manage-subjects';
 
 const Index = () => {
   const [rawExercises, setRawExercises] = useLocalStorage<Exercise[]>('medical-exercises', []);
@@ -342,6 +344,14 @@ const Index = () => {
     }, 2000);
   };
 
+  const handleUpdateSubjects = (subjects: Subject[]) => {
+    saveMedicalSubjects(subjects);
+    // Força atualização da página para recarregar as disciplinas
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
@@ -463,6 +473,7 @@ const Index = () => {
                 onReview={handleReviewExercise}
                 onChangeDate={handleChangeDate}
                 onViewBySubject={() => setCurrentView('questions-by-subject')}
+                onManageSubjects={() => setCurrentView('manage-subjects')}
               />
             )}
           </>
@@ -499,6 +510,14 @@ const Index = () => {
           <QuestionsBySubject
             exercises={exercises}
             onBack={() => setCurrentView('dashboard')}
+          />
+        )}
+
+        {currentView === 'manage-subjects' && (
+          <SubjectManager
+            exercises={exercises}
+            onUpdateSubjects={handleUpdateSubjects}
+            onClose={() => setCurrentView('dashboard')}
           />
         )}
 
