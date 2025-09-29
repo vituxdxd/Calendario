@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Redirecionando...</title>
+    <meta http-equiv="refresh" content="0; url=/Calendario/" />
+    <script>
+      (function () {
+        var base = "/Calendario";
+        var path = window.location.pathname || "/";
+        var search = window.location.search || "";
+        var hash = window.location.hash || "";
+
+        var normalizedPath;
+        if (path.toLowerCase().startsWith(base.toLowerCase())) {
+          normalizedPath = base + path.slice(base.length);
+        } else {
+          var trimmed = path.replace(/^\/+/, "");
+          normalizedPath = base + (trimmed ? "/" + trimmed : "/");
+        }
+
+        if (path.endsWith("/") && !normalizedPath.endsWith("/")) {
+          normalizedPath += "/";
+        }
+
+        var redirectUrl = normalizedPath.replace(/\/{2,}/g, "/") + search + hash;
+
+        try {
+          sessionStorage.setItem("gh-pages-redirect", redirectUrl);
+        } catch (error) {
+          console.warn("Não foi possível armazenar redirecionamento na sessão:", error);
+        }
+
+        window.location.replace(base + "/");
+      })();
+    </script>
+  </head>
+  <body>
+    <p>Redirecionando para a página inicial...</p>
+  </body>
+</html>
