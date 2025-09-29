@@ -6,6 +6,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Medstride - Calendário de Estudos Médicos</title>
     <meta name="description" content="Sistema de estudos médicos com repetição espaçada" />
+    <script>
+      (function () {
+        try {
+          var redirect = sessionStorage.getItem("gh-pages-redirect");
+          if (redirect) {
+            sessionStorage.removeItem("gh-pages-redirect");
+            var current = window.location.pathname + window.location.search + window.location.hash;
+            if (redirect !== current) {
+              window.history.replaceState(null, "", redirect);
+            }
+          }
+        } catch (err) {
+          console.warn("Redirecionamento do GitHub Pages não pôde ser aplicado:", err);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
